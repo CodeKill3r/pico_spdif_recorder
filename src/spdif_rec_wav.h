@@ -10,6 +10,13 @@
 
 #include "spdif_rx.h"
 
+#define RTCSUFX         //use RTC date_time as suffix
+
+#ifdef RTCSUFX
+#include "pico/aon_timer.h"
+#endif
+
+
 extern "C" {
 void spdif_rx_callback_func(uint32_t* buff, uint32_t sub_frame_count, uint8_t c_bits[SPDIF_BLOCK_SIZE / 16], bool parity_err);
 }
@@ -40,9 +47,11 @@ public:
     // === Public class constants ===
     static constexpr int NUM_CHANNELS = 2;
     static constexpr int NUM_SUB_FRAME_BUF = 80; // maximize buffers to the limit for the margin of writing latency as much as possible
-
+    static constexpr int LFNAMLEN = 36;
     // === Public class functions ===
     // functions called from core0
+    static void no_rtc();
+    static void use_rtc();
     static void set_wait_grant_func(void (*func)());
     static bool is_standby();
     static bool is_recording();
@@ -61,6 +70,7 @@ public:
     static void split_recording(const bits_per_sample_t bits_per_sample);
     static void report_error(const error_type_t type, const uint32_t param = 0L);
     static void log_printf(const char* fmt, ...);
+    static bool isRtc();
 
     // === Public member functions ===
     // functions called from core0
@@ -116,7 +126,7 @@ protected:
     // === Private class variables ===
     static const char* _suffix_info_filename;
     static int _suffix;
-    static char _log_filename[16];
+    static char _log_filename[LFNAMLEN];
     static bool _clear_log;
     static uint32_t _sub_frame_buf[SPDIF_BLOCK_SIZE * NUM_SUB_FRAME_BUF];
     static int _sub_frame_buf_id;
@@ -132,6 +142,8 @@ protected:
     static queue_t _spdif_queue;
     static queue_t _record_cmd_queue;
     static queue_t _error_queue;
+    static bool _useRtc;
+
 
     // === Constructor and Destructor (Prohibit) ===
     spdif_rec_wav() = delete;

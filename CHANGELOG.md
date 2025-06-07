@@ -6,11 +6,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [alternate fork by CodeKill3r]
 
+## [1.1.1] - 2025-06-07
+### Added
+* Support for "tiny RTC I2C module" 
+((be careful if using with non recharheable battery -- remove components R4/R5/D1 and short R6))
+* Menu items to set and check date/time
+* Date-time entering on terminal (value range clipped after entering)
+### Changed
+* If working RTC available use datetime in filename (not just attribute)
+### Fixed
+* delay 24Bit switch reading to let the pullup stabilize
+
+
 ## [1.1.0] - 2025-06-05
-###Added
+### Added
 * Support for YDRP2040 board
 * Use YDRP's neopixel LED to indicate status
-###Changed
+### Changed
 * Module interfaces updated to the most recent version (pico_fatfs / pico_spdif_rx / pico_audio_i2s_32b )
 * Updated to SDK 2.1.1
 * old RTC lib repaced by aon_timer

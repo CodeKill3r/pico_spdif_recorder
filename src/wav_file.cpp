@@ -124,8 +124,17 @@ wav_file::wav_file(const uint32_t suffix, const uint32_t sample_freq, const bits
     _data_written(false),
     _truncate_sec(0.0f)
 {
-    char wav_filename[16];
+    char wav_filename[FNAMLEN];
+#ifdef RTCSUFX
+    if (spdif_rec_wav::isRtc()){
+        aon_timer_get_time_calendar(&wav_rtc);
+        sprintf(wav_filename, "%s%d-%02d-%02d_%02d-%02d-%02d.wav", WAV_PREFIX, wav_rtc.tm_year+1900, wav_rtc.tm_mon+1, wav_rtc.tm_mday,  wav_rtc.tm_hour, wav_rtc.tm_min, wav_rtc.tm_sec);
+    }else{
+        sprintf(wav_filename, "%s%03d.wav", WAV_PREFIX, suffix);
+    }
+#else
     sprintf(wav_filename, "%s%03d.wav", WAV_PREFIX, suffix);
+#endif
     _filename = std::string(wav_filename);
 
     _drain_core0_grant();

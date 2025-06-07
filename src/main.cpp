@@ -10,6 +10,9 @@
                 //   but can be used on any other boards ofc externally
 #define DEF24   //use 24 bit default (if no jumper/switch) instead of 16 bit
 //#define STARMED //power up in armed state -- it already listen and only record if there is signal / you dont even need a button to start recording
+#define BATTRTC //use battery backed RTC module (Tiny RTC I2C)
+//#define RTCSUFX --->> spdif_rec_wav.h
+//#define OLED  //use OLED screen display
 
 #include <cstdio>
 
@@ -19,6 +22,10 @@
 
 #ifdef NEOPIX
 #include "ws2812.pio.h"
+#endif
+
+#if defined BATTRTC || defined OLED
+#include "hardware/i2c.h"
 #endif
 
 #include "pico/error.h"
@@ -40,19 +47,37 @@
 
 
 bool picoW = false;
-static constexpr uint PIN_LED = 25;  // PICO_DEFAULT_LED_PIN of Pico
+static constexpr uint8_t PIN_LED = 25;  // PICO_DEFAULT_LED_PIN of Pico
 
 #ifndef YDRP
-static constexpr uint PIN_BUTTON_START_STOP = 7;
+static constexpr uint8_t PIN_BUTTON_START_STOP = 7;
 
 static constexpr uint8_t PIN_DCDC_PSM_CTRL = 23;
 static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 15;
 #else
-static constexpr uint PIN_BUTTON_START_STOP = 24;
+static constexpr uint8_t PIN_BUTTON_START_STOP = 24;
 static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 29;
 #endif
 
-static constexpr uint PIN_SWITCH_24BIT      = 6;
+#ifdef BATTRTC
+#define I2C_RTC     i2c0 
+#define I2C_RTC_SDA 12
+#define I2C_RTC_SCL 13
+
+#define RTC_ADDR 0x68
+#endif
+
+
+#ifdef OLED
+#define I2C_OLED     i2c1 
+#define I2C_OLED_SDA 26
+#define I2C_OLED_SCL 27
+
+#define OLED_ADDR 0x68
+#endif
+
+
+static constexpr uint8_t PIN_SWITCH_24BIT      = 6;
 
 /// GGRRBB
 static constexpr uint32_t CL_ARMED = 0x000F0000; //green
@@ -150,6 +175,145 @@ static bool _check_pico_w()
     return false;
 #endif
 }
+
+#if defined BATTRTC || defined OLED
+// Write n byte(s) to the specified register
+int reg_write(  i2c_inst_t *i2c, 
+                const uint addr, 
+                const uint8_t reg, 
+                uint8_t *buf,
+                const uint8_t nbytes) {
+
+    int num_bytes_write = 0;
+    uint8_t msg[nbytes + 1];
+
+    // Check to make sure caller is sending 1 or more bytes
+    if (nbytes < 1) {
+        return 0;
+    }
+
+    // Append register address to front of data packet
+    msg[0] = reg;
+    for (int i = 0; i < nbytes; i++) {
+        msg[i + 1] = buf[i];
+    }
+
+    // Write data to register(s) over I2C
+    num_bytes_write=i2c_write_blocking(i2c, addr, msg, (nbytes + 1), false);
+    //printf("i2wr %d\r\n",num_bytes_write-1);
+    return num_bytes_write-1;
+}
+
+// Read consecutive byte(s) started from register address
+int reg_read(  i2c_inst_t *i2c,
+                const uint addr,
+                const uint8_t reg,
+                uint8_t *buf,
+                const uint8_t nbytes) {
+
+    int num_bytes_read = 0;
+
+    // Check to make sure caller is asking for 1 or more bytes
+    if (nbytes < 1) {
+        return 0;
+    }
+
+    // Read data from register(s) over I2C
+    i2c_write_blocking(i2c, addr, &reg, 1, true);
+    num_bytes_read = i2c_read_blocking(i2c, addr, buf, nbytes, false);
+
+    return num_bytes_read;
+}
+
+uint8_t decToBcd(uint8_t val) {
+    return ((val / 10) << 4) | (val % 10);
+}
+
+uint8_t bcdToDec(uint8_t val) {
+    return ((val >> 4) * 10) + (val & 0x0F);
+}
+
+
+bool read_datetime(char* i2cdata, char delim){
+    int chr;
+    uint8_t idx=0;
+    for (idx=0; idx<6; idx+=2)
+    {
+        i2cdata[idx]='0';
+        i2cdata[idx+1]=(delim=='-')?'1':'0';        //date init to 01-01-01 -- time init to 00:00:00
+    }
+    idx=0;
+    while(1){
+        if ((chr = getchar_timeout_us(1)) != PICO_ERROR_TIMEOUT) {
+                char c = static_cast<char>(chr);
+                if (c=='\b'){                       //backspace -- clear last digit and delim if 
+                    if((idx==2) || (idx==4)){               //delete delim
+                        putchar('\b');
+                        putchar(' ');
+                        putchar('\b');
+                    }
+                    if (idx==5){
+                        idx--;
+                        putchar(' ');
+                        putchar('\b');
+                    }else{
+                        idx=(idx>0)?idx-1:0;
+                        putchar('\b');
+                        putchar(' ');
+                        putchar('\b');
+                    }
+                }else if(c=='\r'){
+                    while(idx<6){                   //print the remaining digits
+                        putchar(i2cdata[idx]);
+                        if ((idx==1) | (idx==3)){
+                            putchar(delim);
+                        }
+                        idx++;
+                    }
+                    printf("\r\n");
+                    return true;
+                }else if((c>='0') && (c<='9')){
+                    i2cdata[idx]=(uint8_t) c;
+                    putchar(c);
+                    if (idx<5){
+                        idx++;
+                        if ((idx==2) | (idx==4)){
+                            putchar(delim);
+                        }
+                    }else{
+                        putchar('\b');
+                    }
+                }else if(c==delim){
+                    if (idx<5){
+                        if (idx<2)
+                        {
+                            while (idx<2){
+                                putchar(i2cdata[idx]);
+                                idx++;
+                            }
+                            putchar(delim);
+                        }else if(idx<4){
+                            while (idx<4){
+                                putchar(i2cdata[idx]);
+                                idx++;
+                            }
+                            putchar(delim);
+                        }else{  //idx==4
+                            putchar(i2cdata[idx]);
+                            idx++;
+                        }   //if idx==5 char just discarded
+                    }
+                }else if((c=='x') || (c=='X')){
+                    printf("\r\ncancelled\r\n");
+                    return false;
+                }
+        }
+        tight_loop_contents();
+        sleep_ms(10);
+    }
+}
+
+#endif
 
 static void _set_led(bool flag)
 {
@@ -253,6 +417,11 @@ static void _show_help(const bits_per_sample_t bits_per_sample)
     if (picoW) {
         printf(" 'w' to configure wifi (*2)\r\n");
     }
+#ifdef BATTRTC
+    printf(" 't' to set RTC time (*2)\r\n");
+    printf(" 'd' to set RTC date (*2)\r\n");
+#endif 
+    printf(" 'q' to show datetime\r\n");
     printf(" 'h' to show this help\r\n");
     printf("  (*1) only while recording\r\n");
     printf("  (*2) only while not recording\r\n");
@@ -388,7 +557,7 @@ static void _led_disp_error(const main_error_t error, const bool forever = false
 
 int main()
 {
-    int count = 0;
+    //int count = 0;
     bool wait_sync = false;
 
 #ifdef STARMED    
@@ -397,28 +566,14 @@ int main()
     bool user_standy = false;
 #endif
 
+#ifdef BATTRTC
+    uint8_t i2data[8];
+    i2c_inst_t* i2crtc=I2C_RTC;
+#endif
+
     bool standby_repeat = true;
     bits_per_sample_t bits_per_sample = bits_per_sample_t::_24BITS;
     int chr;
-    // default RTC time
-    // datetime_t t_rtc = {
-    //     .year  = static_cast<int16_t>(2024),
-    //     .month = static_cast<int8_t>(1),
-    //     .day   = static_cast<int8_t>(1),
-    //     .dotw  = static_cast<int8_t>(1),  // 0 is Sunday, so 5 is Friday
-    //     .hour  = static_cast<int8_t>(0),
-    //     .min   = static_cast<int8_t>(0),
-    //     .sec   = static_cast<int8_t>(0)
-    // };
-
-     struct tm t_rtc = {};
-     t_rtc.tm_year  = 2024 - 1900,
-     t_rtc.tm_mon   = 1 - 1,
-     t_rtc.tm_mday  = 1,
-     t_rtc.tm_hour  = 0,
-     t_rtc.tm_min   = 0,
-     t_rtc.tm_sec   = 0,
-     t_rtc.tm_isdst = -1,    
 
     stdio_init_all();
     picoW = false; //_check_pico_w();
@@ -429,6 +584,51 @@ int main()
     }
     printf("\r\n");
     //printf("Pico1\r\n");
+
+
+     struct tm t_rtc = {};
+     t_rtc.tm_year  = 2024 - 1900,
+     t_rtc.tm_mon   = 1 - 1,
+     t_rtc.tm_mday  = 1,
+     t_rtc.tm_hour  = 0,
+     t_rtc.tm_min   = 0,
+     t_rtc.tm_sec   = 0,
+     t_rtc.tm_isdst = -1,
+
+    spdif_rec_wav::no_rtc();
+
+#ifdef BATTRTC
+    //Initialize I2C port at 400 kHz
+    i2c_init(i2crtc, 400 * 1000);
+
+    // Initialize I2C pins
+    gpio_set_function(I2C_RTC_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_RTC_SCL, GPIO_FUNC_I2C);
+
+    if (reg_read(i2crtc,RTC_ADDR,0,i2data,7) != 7){
+        printf("ERROR: RTC read failed\r\n");
+        _led_disp_error(main_error_t::NTP_ERROR);
+    }else{
+        if (i2data[0] & 0x80){
+            printf("ERROR: RTC clock stopped\r\n");
+            //printf("RTC raw: %d-%d-%d %d:%d:%d \r\n",i2data[6],i2data[58],i2data[4],i2data[2],i2data[1],i2data[0]);
+            _led_disp_error(main_error_t::NTP_ERROR);
+        }else{
+            t_rtc.tm_year  = 100 + bcdToDec(i2data[6]);     //t_rtc counts from 1900, the RTC module counts from 2000
+            t_rtc.tm_mon   = bcdToDec(i2data[5])-1;
+            t_rtc.tm_mday  = bcdToDec(i2data[4]);
+            t_rtc.tm_hour  = bcdToDec(i2data[2]&0x3F);    //no reason to handle 12h am/pm
+            t_rtc.tm_min   = bcdToDec(i2data[1]);
+            t_rtc.tm_sec   = bcdToDec(i2data[0]);
+
+            printf("RTC date: %d-%02d-%02d %02d:%02d:%02d \r\n",t_rtc.tm_year+1900,t_rtc.tm_mon+1,t_rtc.tm_mday,t_rtc.tm_hour,t_rtc.tm_min,t_rtc.tm_sec);
+            spdif_rec_wav::use_rtc();
+        }
+    }
+
+#endif
+
+
 
     // print configuration parameters in flash
     //configParam.printInfo();
@@ -464,6 +664,7 @@ int main()
     gpio_init(PIN_SWITCH_24BIT);
     gpio_set_dir(PIN_SWITCH_24BIT, GPIO_IN);
     gpio_pull_up(PIN_SWITCH_24BIT);
+    sleep_ms(10);   //need time to charge/settle
 #ifdef DEF24
     bits_per_sample = gpio_get(PIN_SWITCH_24BIT) ? bits_per_sample_t::_24BITS : bits_per_sample_t::_16BITS;
 #else
@@ -644,6 +845,52 @@ int main()
                         put_pixel(CL_ERROR);            
                     }
                 }
+#ifdef BATTRTC
+            } else if (c == 'd') {
+                if (!spdif_rec_wav::is_standby() && !spdif_rec_wav::is_recording()) {
+                    printf("enter the date in the following format: YY-MM-DD  (year is started from 2000)\r\n");
+                    printf("press [enter] to set or 'x' to cancel\r\n");
+                    if (read_datetime((char*)i2data,'-')){
+                        //char to binary
+                        t_rtc.tm_year=100+(i2data[0]-'0')*10+(i2data[1]-'0');
+                        t_rtc.tm_mon=((i2data[2]-'0')*10+(i2data[3]-'0')>12)?11:(i2data[2]-'0')*10+(i2data[3]-'0')-1;
+                        t_rtc.tm_mday=((i2data[4]-'0')*10+(i2data[5]-'0')>31)?31:(i2data[4]-'0')*10+(i2data[5]-'0');
+                        t_rtc.tm_mday=(t_rtc.tm_mday==0)?1:t_rtc.tm_mday;
+                        aon_timer_start_calendar(&t_rtc);
+                        //binary to bcd
+                        i2data[0]=decToBcd(t_rtc.tm_mday);
+                        i2data[1]=decToBcd(t_rtc.tm_mon+1);
+                        i2data[2]=decToBcd(t_rtc.tm_year-100);
+                        if (reg_write(i2crtc,RTC_ADDR,4,i2data,3) != 3){
+                            printf("ERROR: RTC write failed\r\n");
+                            _led_disp_error(main_error_t::NTP_ERROR);
+                        }
+                    }
+                }
+            } else if (c == 't') {
+                if (!spdif_rec_wav::is_standby() && !spdif_rec_wav::is_recording()) {
+                    printf("enter the time in the following format: HH:mm:ss  (24hour format)\r\n");
+                    printf("press [enter] to set or 'x' to cancel\r\n");
+                    if (read_datetime((char*)i2data,':')){
+                        //char to binary
+                        t_rtc.tm_hour=((i2data[0]-'0')*10+(i2data[1]-'0')>23)?23:(i2data[0]-'0')*10+(i2data[1]-'0');
+                        t_rtc.tm_min=((i2data[2]-'0')*10+(i2data[3]-'0')>59)?59:(i2data[2]-'0')*10+(i2data[3]-'0');
+                        t_rtc.tm_sec=((i2data[4]-'0')*10+(i2data[5]-'0')>59)?59:(i2data[4]-'0')*10+(i2data[5]-'0');
+                        aon_timer_start_calendar(&t_rtc);
+                        //binary to bcd
+                        i2data[0]=decToBcd(t_rtc.tm_sec);
+                        i2data[1]=decToBcd(t_rtc.tm_min);
+                        i2data[2]=decToBcd(t_rtc.tm_hour);
+                        if (reg_write(i2crtc,RTC_ADDR,0,i2data,3) != 3){
+                            printf("ERROR: RTC write failed\r\n");
+                            _led_disp_error(main_error_t::NTP_ERROR);
+                        }
+                    }
+                }
+#endif
+            } else if (c == 'q') {
+                aon_timer_get_time_calendar(&t_rtc);
+                printf("RTC date: %02d-%02d-%02d %02d:%02d:%02d \r\n",t_rtc.tm_year+1900,t_rtc.tm_mon+1,t_rtc.tm_mday,t_rtc.tm_hour,t_rtc.tm_min,t_rtc.tm_sec);
             } else if (c == 'h') {
                 _show_help(bits_per_sample);
             }
@@ -666,7 +913,7 @@ int main()
 
         tight_loop_contents();
         sleep_ms(10);
-        count++;
+        //count++;
     }
 
     sleep_ms(1000);  // time to output something to serial

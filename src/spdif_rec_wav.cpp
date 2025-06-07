@@ -33,7 +33,7 @@ static inline uint64_t _micros()
 /-----------------*/
 const char*    spdif_rec_wav::_suffix_info_filename;
 int            spdif_rec_wav::_suffix;
-char           spdif_rec_wav::_log_filename[16];
+char           spdif_rec_wav::_log_filename[LFNAMLEN];
 bool           spdif_rec_wav::_clear_log;
 uint32_t       spdif_rec_wav::_sub_frame_buf[SPDIF_BLOCK_SIZE * NUM_SUB_FRAME_BUF];
 int            spdif_rec_wav::_sub_frame_buf_id = 0;
@@ -46,13 +46,25 @@ bool           spdif_rec_wav::_standby_flag = false;
 bool           spdif_rec_wav::_recording_flag = false;
 bool           spdif_rec_wav:: _blank_split = true;
 bool           spdif_rec_wav:: _verbose = false;
+bool           spdif_rec_wav:: _useRtc = false;
 queue_t        spdif_rec_wav::_spdif_queue;
 queue_t        spdif_rec_wav::_record_cmd_queue;
 queue_t        spdif_rec_wav::_error_queue;
 
+
 /*------------------------/
 /  Public class functions
 /------------------------*/
+void spdif_rec_wav::no_rtc()
+{
+    _useRtc=false;
+}
+
+void spdif_rec_wav::use_rtc()
+{
+    _useRtc=true;
+}
+
 void spdif_rec_wav::set_wait_grant_func(void (*func)())
 {
     wav_file_status::set_wait_grant_func(func);
@@ -122,8 +134,13 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
     int buf_accum = 0;
     int last_buf_id = 0;
 
+//#ifdef RTCSUFX
+//     _suffix=0;
+//     sprintf(_log_filename, "%s%d-%02d-%02d_%02d-%02d-%02d.txt", log_prefix, wav_file::wav_rtc.tm_year+1900, wav_rtc.tm_mon+1, wav_rtc.tm_mday,  wav_rtc.tm_hour, wav_rtc.tm_min, wav_rtc.tm_sec);
+// #else
     _suffix = _get_last_suffix() + 1;  // initial suffix to start from 1
     sprintf(_log_filename, "%s%03d.txt", log_prefix, _suffix);
+//#endif
 
     // Initialize queues
     queue_init(&_spdif_queue, sizeof(sub_frame_buf_info_t), SPDIF_QUEUE_LENGTH);
@@ -411,6 +428,11 @@ void spdif_rec_wav::log_printf(const char* fmt, ...)
     }
 
     printf("ERROR: printing on log file failed\r\n");
+}
+
+bool spdif_rec_wav::isRtc()
+{
+    return _useRtc;
 }
 
 void spdif_rec_wav::_push_sub_frame_buf(const uint32_t* buff, const uint32_t sub_frame_count)

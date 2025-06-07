@@ -10,6 +10,8 @@
 
 #include "ff.h"
 #include "spdif_rec_wav.h"
+ 
+
 
 class wav_file
 {
@@ -32,6 +34,7 @@ public:
     void report_start() const;
     void report_final() const;
     bool is_data_written() const;
+    struct tm wav_rtc;
 
 protected:
     // === Private class constants ===
@@ -39,6 +42,7 @@ protected:
     static constexpr int NUM_SUB_FRAME_BUF = spdif_rec_wav::NUM_SUB_FRAME_BUF;
     static constexpr const char* WAV_PREFIX = "record_";
     static constexpr int WAV_HEADER_SIZE = 44;
+    static constexpr int FNAMLEN = 36;  //maximum leght of filename
     static constexpr uint32_t MAX_TOTAL_BYTES = 0xfff00000;  // max total bytes of wav data to avoid 32bit overflow
     static constexpr int64_t SEEK_STEP_BYTES = 10 * 1024 * 1024;  // 10MB
 
