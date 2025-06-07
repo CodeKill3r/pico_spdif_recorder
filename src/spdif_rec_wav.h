@@ -101,9 +101,9 @@ protected:
     static constexpr int BLANK_LEVEL = 16;  // level to detect blank supposing 16bit data
     static constexpr int SEVERE_BLANK_LEVEL = 4;  // severe level to detect blank SKIP supposing 16bit data
     static constexpr float PRE_START_SEC = 0.02;  // the seconds to load in prior to end of blank when start (must be  < NUM_SUB_FRAME_BUF * SPDIF_BLOCK_SIZE / NUM_CHANNELS / max_sample_freq / 2)
-    static constexpr float BLANK_SEC = 0.5;  // the seconds to detect the blank
+    static constexpr float BLANK_SEC = 60.0;  // the seconds to detect the blank
     static constexpr float BLANK_REPEAT_PROHIBIT_SEC = 10.0;  // the seconds within which detecting blank is prohibited
-    static constexpr float BLANK_SKIP_SEC = 10.0;  // skip recording if blank time is longer than this seconds
+    static constexpr float BLANK_SKIP_SEC = 60.0;  // skip recording if blank time is longer than this seconds
 
     // === Private class functions ===
     // functions called from core1
@@ -120,6 +120,8 @@ protected:
     static bool _clear_log;
     static uint32_t _sub_frame_buf[SPDIF_BLOCK_SIZE * NUM_SUB_FRAME_BUF];
     static int _sub_frame_buf_id;
+    static int _adaptive_blank_level;
+    static int _adaptive_severe_blank_level;
     static float _blank_sec;
     static float _severe_blank_sec;
     static float _blank_scan_sec;

@@ -245,116 +245,116 @@ void ConfigParamUser::write(uint32_t id, const void *ptr)
 
 bool ConfigParamUser::getBool(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_BOOL_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_BOOL_T);
     uint8_t value = *(reinterpret_cast<uint8_t *>(configParamItems[id].ptr));
     return (value != 0) ? true : false;
 }
 
 uint8_t ConfigParamUser::getU8(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_UINT8_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT8_T);
     return *(reinterpret_cast<uint8_t *>(configParamItems[id].ptr));
 }
 
 uint16_t ConfigParamUser::getU16(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_UINT16_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT16_T);
     return *(reinterpret_cast<uint16_t *>(configParamItems[id].ptr));
 }
 
 uint32_t ConfigParamUser::getU32(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_UINT32_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT32_T);
     return *(reinterpret_cast<uint32_t *>(configParamItems[id].ptr));
 }
 
 uint64_t ConfigParamUser::getU64(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_UINT64_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT64_T);
     return *(reinterpret_cast<uint64_t *>(configParamItems[id].ptr));
 }
 
 int8_t ConfigParamUser::getI8(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_INT8_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT8_T);
     return *(reinterpret_cast<int8_t *>(configParamItems[id].ptr));
 }
 
 int16_t ConfigParamUser::getI16(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_INT16_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT16_T);
     return *(reinterpret_cast<int16_t *>(configParamItems[id].ptr));
 }
 
 int32_t ConfigParamUser::getI32(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_INT32_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT32_T);
     return *(reinterpret_cast<int32_t *>(configParamItems[id].ptr));
 }
 
 int64_t ConfigParamUser::getI64(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_INT64_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT64_T);
     return *(reinterpret_cast<int64_t *>(configParamItems[id].ptr));
 }
 
 char *ConfigParamUser::getStr(uint32_t id)
 {
-    assert(configParamItems[id].paramType == CFG_STRING_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_STRING_T);
     return reinterpret_cast<char *>(configParamItems[id].ptr);
 }
 
 void ConfigParamUser::setU8(uint32_t id, const uint8_t val)
 {
-    assert(configParamItems[id].paramType == CFG_UINT8_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT8_T);
     *(reinterpret_cast<uint8_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setU16(uint32_t id, const uint16_t val)
 {
-    assert(configParamItems[id].paramType == CFG_UINT16_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT16_T);
     *(reinterpret_cast<uint16_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setU32(uint32_t id, const uint32_t val)
 {
-    assert(configParamItems[id].paramType == CFG_UINT32_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT32_T);
     *(reinterpret_cast<uint32_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setU64(uint32_t id, const uint64_t val)
 {
-    assert(configParamItems[id].paramType == CFG_UINT64_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_UINT64_T);
     *(reinterpret_cast<uint64_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setI8(uint32_t id, const int8_t val)
 {
-    assert(configParamItems[id].paramType == CFG_INT8_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT8_T);
     *(reinterpret_cast<int8_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setI16(uint32_t id, const int16_t val)
 {
-    assert(configParamItems[id].paramType == CFG_INT16_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT16_T);
     *(reinterpret_cast<int16_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setI32(uint32_t id, const int32_t val)
 {
-    assert(configParamItems[id].paramType == CFG_INT32_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT32_T);
     *(reinterpret_cast<int32_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setI64(uint32_t id, const int64_t val)
 {
-    assert(configParamItems[id].paramType == CFG_INT64_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_INT64_T);
     *(reinterpret_cast<int64_t *>(configParamItems[id].ptr)) = val;
 }
 
 void ConfigParamUser::setStr(uint32_t id, const char *str)
 {
-    assert(configParamItems[id].paramType == CFG_STRING_T);
+    assert(configParamItems[id].paramType == ParamType::CFG_STRING_T);
     char *ptr = reinterpret_cast<char *>(configParamItems[id].ptr);
     memset(ptr, 0, configParamItems[id].size);
     strncpy(ptr, str, configParamItems[id].size-1);

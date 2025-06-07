@@ -1,7 +1,7 @@
 if (NOT TARGET pico_fatfs_customized)
+	add_subdirectory(pico_fatfs/pio/spi pio_spi)
     add_library(pico_fatfs_customized INTERFACE)
 
-    #set(FATFS_REV R0.14b)
     set(FATFS_REV R0.15)
 
     target_sources(pico_fatfs_customized INTERFACE
@@ -24,5 +24,6 @@ if (NOT TARGET pico_fatfs_customized)
         hardware_spi
         hardware_rtc
         pico_stdlib
+	pio_spi
     )
 endif()

@@ -4,7 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [alternate fork by CodeKill3r]
+
+## [1.1.0] - 2025-06-05
+###Added
+* Support for YDRP2040 board
+* Use YDRP's neopixel LED to indicate status
+###Changed
+* Module interfaces updated to the most recent version (pico_fatfs / pico_spdif_rx / pico_audio_i2s_32b )
+* Updated to SDK 2.1.1
+* old RTC lib repaced by aon_timer
+* Default bitdepth set to 24bit (easy to change in define)
+
+
+## [original changes]
 
 ## [1.0.1] - 2024-03-30
 ### Added

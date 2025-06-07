@@ -4,8 +4,8 @@
 / refer to https://opensource.org/licenses/BSD-2-Clause
 /------------------------------------------------------*/
 
-#include "hardware/rtc.h"
 #include "pico/stdlib.h"
+#include "pico/aon_timer.h"
 
 #include "tf_card_override.h"
 

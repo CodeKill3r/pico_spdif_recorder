@@ -4,10 +4,26 @@
 / refer to https://opensource.org/licenses/BSD-2-Clause
 /------------------------------------------------------*/
 
+
+#define YDRP    //YDRP2040  board config -- usrBtn already there, just different pin
+#define NEOPIX  //use a single neopixel (ws2812) for status display  -- already present on YDRP2040 boards
+                //   but can be used on any other boards ofc externally
+#define DEF24   //use 24 bit default (if no jumper/switch) instead of 16 bit
+//#define STARMED //power up in armed state -- it already listen and only record if there is signal / you dont even need a button to start recording
+
 #include <cstdio>
 
+#ifndef YDRP
 #include "hardware/adc.h"
-#include "hardware/rtc.h"
+#endif
+
+#ifdef NEOPIX
+#include "ws2812.pio.h"
+#endif
+
+#include "pico/error.h"
+#include "pico/aon_timer.h"
+//#include "hardware/rtc.h"
 #include "pico/stdlib.h"
 #include "pico/flash.h"
 #include "pico/multicore.h"
@@ -22,14 +38,37 @@
 #include "ntp_client.h"
 #include "ConfigParam.h"
 
+
 bool picoW = false;
 static constexpr uint PIN_LED = 25;  // PICO_DEFAULT_LED_PIN of Pico
 
+#ifndef YDRP
+static constexpr uint PIN_BUTTON_START_STOP = 7;
+
 static constexpr uint8_t PIN_DCDC_PSM_CTRL = 23;
 static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 15;
+#else
+static constexpr uint PIN_BUTTON_START_STOP = 24;
+static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 29;
+#endif
 
 static constexpr uint PIN_SWITCH_24BIT      = 6;
-static constexpr uint PIN_BUTTON_START_STOP = 7;
+
+/// GGRRBB
+static constexpr uint32_t CL_ARMED = 0x000F0000; //green
+static constexpr uint32_t CL_STOP  = 0x0000001F; //bright blue
+static constexpr uint32_t CL_REC   = 0x00000F00; //red
+static constexpr uint32_t CL_ERROR = 0x000F0F00; //yellow
+
+#ifdef NEOPIX
+static constexpr uint8_t PIN_PICO_NEOPIX = 23;
+
+#define IS_RGBW true
+#define PIXCLOCK 800000 //800000
+
+PIO npxpio = pio1;
+static constexpr int npxsm = 3;
+#endif
 
 enum class main_error_t {
     CYW43_INIT_ERROR = 0,
@@ -65,8 +104,24 @@ static inline uint32_t _millis()
     return to_ms_since_boot(get_absolute_time());
 }
 
+static inline void put_pixel(uint32_t pixel_grb) {
+#ifdef NEOPIX       //conditional so if there is no neopixel, there will be nothing added, but the code will not be peppered with preproc branches
+    pio_sm_put(npxpio, npxsm, pixel_grb << 8u);
+#endif
+}
+
+#ifdef NEOPIX
+static inline uint32_t urgb_u32(uint8_t r, uint8_t g, uint8_t b) {
+    return
+            ((uint32_t) (r) << 8) |
+            ((uint32_t) (g) << 16) |
+            (uint32_t) (b);
+}
+#endif
+
 static bool _check_pico_w()
 {
+#ifndef YDRP
     adc_init();
     auto dir = gpio_get_dir(29);
     auto fnc = gpio_get_function(29);
@@ -91,12 +146,19 @@ static bool _check_pico_w()
     } else {
         return false;
     }
+#else
+    return false;
+#endif
 }
 
 static void _set_led(bool flag)
 {
     if (picoW) {
+
+#ifndef YDRP
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, flag);
+#endif
+
     } else {
         gpio_put(PIN_LED, flag);
     }
@@ -244,12 +306,14 @@ static void _toggle_start_stop(const bits_per_sample_t bits_per_sample, bool& wa
     if (spdif_rec_wav::is_standby()) {
         if (user_standy) {
             printf("cancelled\r\n");
+            put_pixel(CL_STOP);          
             spdif_rec_wav::end_recording();
             user_standy = false;
             standby_repeat = false;
         } else {
             // no command needed because already in standby
             printf("start when sound detected\r\n");
+            put_pixel(CL_ARMED);           
             user_standy = true;
             standby_repeat = true;
         }
@@ -259,18 +323,21 @@ static void _toggle_start_stop(const bits_per_sample_t bits_per_sample, bool& wa
         standby_repeat = false;
     } else if (wait_sync) {
         printf("wait_sync cancelled\r\n");
-        wait_sync = false;
+        put_pixel(CL_STOP);          
+    wait_sync = false;
         user_standy = false;
         standby_repeat = false;
     } else if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE) {
         printf("start when sound detected\r\n");
-        spdif_rec_wav::start_recording(bits_per_sample, true);  // standby start
+        put_pixel(CL_ARMED);         
+    spdif_rec_wav::start_recording(bits_per_sample, true);  // standby start
         wait_sync = false;
         user_standy = true;
         standby_repeat = true;
     } else {
         printf("start when stable sync detected\r\n");
-        wait_sync = true;
+        put_pixel(CL_ARMED);          
+    wait_sync = true;
         user_standy = true;
         standby_repeat = true;
     }
@@ -323,40 +390,73 @@ int main()
 {
     int count = 0;
     bool wait_sync = false;
+
+#ifdef STARMED    
+    bool user_standy = true;
+#else
     bool user_standy = false;
+#endif
+
     bool standby_repeat = true;
-    bits_per_sample_t bits_per_sample = bits_per_sample_t::_16BITS;
+    bits_per_sample_t bits_per_sample = bits_per_sample_t::_24BITS;
     int chr;
     // default RTC time
-    datetime_t t_rtc = {
-        .year  = static_cast<int16_t>(2024),
-        .month = static_cast<int8_t>(1),
-        .day   = static_cast<int8_t>(1),
-        .dotw  = static_cast<int8_t>(1),  // 0 is Sunday, so 5 is Friday
-        .hour  = static_cast<int8_t>(0),
-        .min   = static_cast<int8_t>(0),
-        .sec   = static_cast<int8_t>(0)
-    };
+    // datetime_t t_rtc = {
+    //     .year  = static_cast<int16_t>(2024),
+    //     .month = static_cast<int8_t>(1),
+    //     .day   = static_cast<int8_t>(1),
+    //     .dotw  = static_cast<int8_t>(1),  // 0 is Sunday, so 5 is Friday
+    //     .hour  = static_cast<int8_t>(0),
+    //     .min   = static_cast<int8_t>(0),
+    //     .sec   = static_cast<int8_t>(0)
+    // };
+
+     struct tm t_rtc = {};
+     t_rtc.tm_year  = 2024 - 1900,
+     t_rtc.tm_mon   = 1 - 1,
+     t_rtc.tm_mday  = 1,
+     t_rtc.tm_hour  = 0,
+     t_rtc.tm_min   = 0,
+     t_rtc.tm_sec   = 0,
+     t_rtc.tm_isdst = -1,    
 
     stdio_init_all();
-    picoW = _check_pico_w();
+    picoW = false; //_check_pico_w();
 
     // serial connection waiting (max 1 sec)
     while (!stdio_usb_connected() && _millis() < 1000) {
         sleep_ms(100);
     }
     printf("\r\n");
+    //printf("Pico1\r\n");
 
     // print configuration parameters in flash
     //configParam.printInfo();
 
+#ifndef YDRP
     // DCDC PSM control
     // 0: PFM mode (best efficiency)
     // 1: PWM mode (improved ripple)
     gpio_init(PIN_DCDC_PSM_CTRL);
     gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
     gpio_put(PIN_DCDC_PSM_CTRL, 1); // PWM mode for less Audio noise
+#endif
 
+#ifdef NEOPIX
+    // todo get free sm
+
+    pio_sm_claim(npxpio, npxsm);
+
+    //load pio module
+    uint offset = pio_add_program(npxpio, &ws2812_program);
+
+    //init pio module
+
+    //  ( pio core | state machine | loaded_offset | working freq | RGBW or RGB )
+    ws2812_program_init(npxpio, npxsm, offset, PIN_PICO_NEOPIX, PIXCLOCK, IS_RGBW);
+#endif
+
+    //printf("Pico2\r\n");
     // Button/Switch
     gpio_init(PIN_BUTTON_START_STOP);
     gpio_set_dir(PIN_BUTTON_START_STOP, GPIO_IN);
@@ -364,7 +464,19 @@ int main()
     gpio_init(PIN_SWITCH_24BIT);
     gpio_set_dir(PIN_SWITCH_24BIT, GPIO_IN);
     gpio_pull_up(PIN_SWITCH_24BIT);
+#ifdef DEF24
+    bits_per_sample = gpio_get(PIN_SWITCH_24BIT) ? bits_per_sample_t::_24BITS : bits_per_sample_t::_16BITS;
+#else
     bits_per_sample = gpio_get(PIN_SWITCH_24BIT) ? bits_per_sample_t::_16BITS : bits_per_sample_t::_24BITS;
+#endif
+
+    //printf("Pico3\r\n");
+
+    //test pixel code - turn on full white
+
+    //put_pixel(urgb_u32(0x0f, 0x00, 0x00));
+    put_pixel(CL_STOP);
+
 
     // spdif_rx initialize
     _spdif_rx_init();
@@ -402,8 +514,9 @@ int main()
     _set_led(false);
 
     // RTC
-    rtc_init();
-    rtc_set_datetime(&t_rtc);
+    //rtc_init();
+    //rtc_set_datetime(&t_rtc);
+    aon_timer_start_calendar(&t_rtc);
 
     // FATFS initialize
     if (!_fatfs_init()) {
@@ -428,13 +541,16 @@ int main()
     while (true) {
         if (!core1_running) {
             printf("ERROR: spdif_rec_wav process_loop exit\r\n");
+            put_pixel(CL_ERROR);
             break;
         }
         if (stable_flg) {
             stable_flg = false;
             printf("detected stable sync @ %d Hz\r\n", spdif_rx_get_samp_freq());
+            //printf("Pico6\r\n");
             if (wait_sync) {
-                printf("start when sound detected\r\n");
+                    put_pixel(CL_ARMED);
+                    printf("start when sound detected\r\n");
                 spdif_rec_wav::start_recording(bits_per_sample, true);  // standby start
                 wait_sync = false;
                 user_standy = true;
@@ -443,6 +559,7 @@ int main()
         if (lost_stable_flg) {
             lost_stable_flg = false;
             printf("lost stable sync. waiting for signal\r\n");
+            put_pixel(CL_STOP);
             if (spdif_rec_wav::is_standby() || spdif_rec_wav::is_recording()) {
                 spdif_rec_wav::end_recording();
                 wait_sync = standby_repeat;
@@ -517,12 +634,14 @@ int main()
                         // trial to connect Wi-Fi
                         if (_connect_wifi(ssid, password)) {
                             if (run_ntp("UTC+0", t_rtc)) {
-                                rtc_set_datetime(&t_rtc);
+                                //rtc_set_datetime(&t_rtc);
+                                aon_timer_set_time_calendar(&t_rtc);
                             }
                         }
                     } else {
                         printf("ERROR: failed to program flash\r\n");
                         _led_disp_error(main_error_t::FLASH_PROGRAM_ERROR);
+                        put_pixel(CL_ERROR);            
                     }
                 }
             } else if (c == 'h') {
@@ -532,9 +651,14 @@ int main()
             while (getchar_timeout_us(1) != PICO_ERROR_TIMEOUT) {};
         }
         if (spdif_rec_wav::is_recording()) {
+            put_pixel((_millis() /50) % 0x2F << 8);
             _set_led((_millis() / 500) % 2 == 0);
         } else {
             _set_led(false);
+            if ((!wait_sync) && (!user_standy))
+                put_pixel(CL_STOP);
+            else
+                put_pixel(CL_ARMED);
         }
 
         // background file process on core0
@@ -547,6 +671,7 @@ int main()
 
     sleep_ms(1000);  // time to output something to serial
 
+    put_pixel(CL_ERROR);            
     _led_disp_error(main_error_t::MAIN_LOOP_ABORTED_ERROR, true);
 
     return 0;
