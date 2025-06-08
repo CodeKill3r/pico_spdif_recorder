@@ -330,7 +330,7 @@ void spdif_rec_wav::end_recording(const bool immediate_split)
 
 void spdif_rec_wav::split_recording(const bits_per_sample_t bits_per_sample)
 {
-    end_recording(true);
+    end_recording(false);
     start_recording(bits_per_sample);
 }
 
@@ -521,26 +521,11 @@ spdif_rec_wav::blank_status_t spdif_rec_wav::_scan_blank(const uint32_t* buff, c
     float time_sec = static_cast<float>(sub_frame_count) / NUM_CHANNELS / sample_freq;
 
     uint32_t ave_level = data_accum / sub_frame_count;
-    if (_recording_flag) {
-        if (_adaptive_blank_level < BLANK_LEVEL) {
-            _adaptive_blank_level = ave_level / 2;
-        } else if (ave_level > BLANK_LEVEL) {
-            _adaptive_blank_level = BLANK_LEVEL;
-        }
-        if (_adaptive_severe_blank_level < SEVERE_BLANK_LEVEL) {
-            _adaptive_severe_blank_level = ave_level / 2;
-        } else if (ave_level > SEVERE_BLANK_LEVEL) {
-            _adaptive_severe_blank_level = SEVERE_BLANK_LEVEL;
-        }
-    } else {
-        _adaptive_blank_level = 0;
-        _adaptive_severe_blank_level = 0;
-    }
-    if (ave_level < _adaptive_severe_blank_level) {
+    if (ave_level < SEVERE_BLANK_LEVEL) {
         status = (_severe_blank_sec > BLANK_SKIP_SEC) ? blank_status_t::BLANK_SKIP : blank_status_t::BLANK_DETECTED;
         _blank_sec += time_sec;
         _severe_blank_sec += time_sec;
-    } else if (ave_level < _adaptive_blank_level || ave_level == 0) {
+    } else if (ave_level < BLANK_LEVEL) {
         status = blank_status_t::BLANK_DETECTED;
         _blank_sec += time_sec;
         _severe_blank_sec = 0.0f;
