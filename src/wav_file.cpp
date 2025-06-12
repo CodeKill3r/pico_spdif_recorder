@@ -12,6 +12,8 @@
 
 #include "wav_file_status.h"
 
+#include "oled.h"
+
 /*-----------------/
 /  Local function
 /-----------------*/
@@ -136,6 +138,7 @@ wav_file::wav_file(const uint32_t suffix, const uint32_t sample_freq, const bits
     sprintf(wav_filename, "%s%03d.wav", WAV_PREFIX, suffix);
 #endif
     _filename = std::string(wav_filename);
+    memccpy(oled_fnam,wav_filename,0,27);
 
     _drain_core0_grant();
     for ( ; ; ) {
@@ -253,6 +256,12 @@ wav_file::~wav_file()
             if (fr != FR_OK) break;
         }
 
+        ///update free space
+        FATFS* fs;
+        DWORD fre_clust, fre_sect;
+        f_getfree("0:",&fre_clust,&fs);
+        oled_free =(uint64_t) fre_clust * (fs->csize) * 512;
+
         return;
     }
 
@@ -278,6 +287,16 @@ uint32_t wav_file::write(const uint32_t* buff, const uint32_t sub_frame_count)
     _total_bytes += bytes;
     _total_time_us += t_us;
     _data_written = true;
+
+    //OLED time calc
+    float total_sec_f = static_cast<float>(_total_bytes) / (static_cast<uint32_t>(_bits_per_sample)/8) / NUM_CHANNELS / _sample_freq - _truncate_sec;
+    uint32_t total_sec = static_cast<uint32_t>(total_sec_f);
+    //uint32_t total_sec_dp = static_cast<uint32_t>((total_sec_f - total_sec) * 1e3);
+    oled_frame=static_cast<uint8_t>(total_sec_f*75-total_sec*75)%75;
+    oled_sec=total_sec%60;
+    oled_min=(total_sec/60)%60;
+    oled_hour=(total_sec/3600)%10;  //should not be bigger than 10 anyways
+
 
     // force immediate split to avoid 32bit file size overflow
     if (_total_bytes > MAX_TOTAL_BYTES) {

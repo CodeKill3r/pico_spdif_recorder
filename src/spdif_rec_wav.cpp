@@ -11,6 +11,7 @@
 
 #include "wav_file_status.h"
 #include "wav_file_cmd.h"
+#include "oled.h"
 
 /*---------------------------------------/
 /  Global callback function by spdif_rx
@@ -135,6 +136,7 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
     int last_buf_id = 0;
 
 //#ifdef RTCSUFX
+/////////  _log_filename with datetime would need a bit much rewrite, so it stays as is for now
 //     _suffix=0;
 //     sprintf(_log_filename, "%s%d-%02d-%02d_%02d-%02d-%02d.txt", log_prefix, wav_file::wav_rtc.tm_year+1900, wav_rtc.tm_mon+1, wav_rtc.tm_mday,  wav_rtc.tm_hour, wav_rtc.tm_min, wav_rtc.tm_sec);
 // #else
@@ -150,6 +152,7 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
 
     printf("spdif_rec_wav process started\r\n");
 
+    //prepare -- wait for command
     while (queue_is_empty(&_record_cmd_queue)) {}
 
     // Loop
@@ -162,6 +165,8 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
             // initialize variales for a single wav file
             sample_freq = record_cmd_data.param[0];
             bits_per_sample = static_cast<bits_per_sample_t>(record_cmd_data.param[1]);
+
+            //prepare loop
 
             if (record_cmd_data.cmd == record_cmd_type_t::STANDBY_START_CMD) {
                 _standby_flag = true;
@@ -216,12 +221,62 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
             }
             _set_last_suffix(_suffix);
 
+
+            //main loop (?)
+
             while (true) {
                 uint queue_level = queue_get_level(&_spdif_queue);
+                oled_buff=static_cast<uint8_t>(queue_level*100/NUM_SUB_FRAME_BUF);
                 cur.record_queue_ratio(static_cast<float>(queue_level) / SPDIF_QUEUE_LENGTH);
                 if (queue_level >= NUM_SUB_FRAME_BUF/2) {
                     while (queue_level > 0) {
                         sub_frame_buf_info_t buf_info;
+                        // avg level -> oled_volL/volR
+                        queue_peek_blocking(&_spdif_queue, &buf_info);
+
+                        // max detection is not that good -- avg looks more consistent
+                        //
+                        //int32_t maxL=0,maxR=0;
+                        // for(int i=0; i<buf_info.sub_frame_count; i+=2){
+                        //     if(bits_per_sample==bits_per_sample_t::_24BITS){
+                                // maxL=(maxL<(int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i])>>4 & 0xffffff)<<8))?((int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i])>>4 & 0xffffff)<<8)):maxL;
+                                // maxR=(maxR<(int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1])>>4 & 0xffffff)<<8))?((int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1])>>4 & 0xffffff)<<8)):maxR;
+                            // }else{
+                                // maxL=(maxL<(int16_t)((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i])>>12 & 0xffff))?(int16_t)((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i])>>12 & 0xffff):maxL;
+                                // maxR=(maxR<(int16_t)((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1])>>12 & 0xffff))?(int16_t)((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1])>>12 & 0xffff):maxR;
+                            //     }
+                            // }
+                        // if(bits_per_sample==bits_per_sample_t::_24BITS){
+                        //     maxL=maxL>>8;
+                        //     maxR=maxR>>8;
+                        // }
+                        // oled_volL=(uint32_t)maxL;
+                        // oled_volR=(uint32_t)maxR;
+
+
+                        int64_t avgL=0,avgR=0;
+                        for(int i=0; i<buf_info.sub_frame_count; i+=2){
+                            if(bits_per_sample==bits_per_sample_t::_24BITS){
+                                //ok i know it is ugly, but abs only works if msb is the left most bit in int32_t -- but the input is 24 and 16 bit
+                                //so i bump it up -- abs -- then reduce to input bitdepth
+                                //
+                                //printf("RAW-L  %X   RAW-R  %X\r\n",abs((int32_t) _sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i]>>4 & 0xffffff),abs((int32_t) _sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1]>>4 & 0xffffff));
+                                avgL+=(abs((int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i])>>4 & 0xffffff)<<8))>>8);
+                                avgR+=(abs((int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1])>>4 & 0xffffff)<<8))>>8);
+                            }else{
+                                avgL+=(abs((int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i])>>12 & 0xffff)<<16))>>16);
+                                avgR+=(abs((int32_t)(((_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1])>>12 & 0xffff)<<16))>>16);
+                            }
+                        }
+                        //printf("aL %llX   aR  %llX  -- count %X\r\n",avgL,avgR, buf_info.sub_frame_count);
+                        avgL/=buf_info.sub_frame_count;
+                        avgR/=buf_info.sub_frame_count;
+                        //printf("NNaL %llX   NNaR  %llX \r\n",avgL,avgR);
+                        //signed to unsigned --- the calcVU is based on unsigned values-- could be fixed there, but here is easier
+                        oled_volL=(uint32_t)avgL<<1;
+                        oled_volR=(uint32_t)avgR<<1;
+
+
                         // check blank status
                         if (_blank_split) {
                             queue_peek_blocking(&_spdif_queue, &buf_info);
@@ -254,8 +309,11 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
                         cur.record_queue_ratio(static_cast<float>(queue_level) / SPDIF_QUEUE_LENGTH);
                     }
                 } else if (queue_level < NUM_SUB_FRAME_BUF/4) {
-                    if (cur.is_data_written() && next.is_equal_status(wav_file_status::status_t::RESET)) {
+                    ////// not sure about what this is meant to do, but could cause double access of the same file with RTC
+                    //if (cur.is_data_written() && next.is_equal_status(wav_file_status::status_t::RESET)) {
+                    if (cur.is_data_written() && next.is_equal_status(wav_file_status::status_t::REQ_PREPARE)) {
                         // prepare next file
+                        printf("prep next \r\n");
                         next.req_prepare(_suffix + 1, sample_freq, bits_per_sample);
                     }
                     wav_file_status::send_core0_grant();
@@ -330,7 +388,7 @@ void spdif_rec_wav::end_recording(const bool immediate_split)
 
 void spdif_rec_wav::split_recording(const bits_per_sample_t bits_per_sample)
 {
-    end_recording(false);
+    end_recording(true);
     start_recording(bits_per_sample);
 }
 

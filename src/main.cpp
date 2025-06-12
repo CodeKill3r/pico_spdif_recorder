@@ -12,7 +12,7 @@
 //#define STARMED //power up in armed state -- it already listen and only record if there is signal / you dont even need a button to start recording
 #define BATTRTC //use battery backed RTC module (Tiny RTC I2C)
 //#define RTCSUFX --->> spdif_rec_wav.h
-//#define OLED  //use OLED screen display
+#define OLED  //use OLED screen display
 
 #include <cstdio>
 
@@ -26,6 +26,11 @@
 
 #if defined BATTRTC || defined OLED
 #include "hardware/i2c.h"
+#endif
+
+#ifdef OLED
+#include "ssd1306.h"
+#include "textRenderer/TextRenderer.h"
 #endif
 
 #include "pico/error.h"
@@ -44,6 +49,7 @@
 #include "config_wifi.h"
 #include "ntp_client.h"
 #include "ConfigParam.h"
+#include "oled.h"
 
 
 bool picoW = false;
@@ -73,9 +79,104 @@ static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 29;
 #define I2C_OLED_SDA 26
 #define I2C_OLED_SCL 27
 
-#define OLED_ADDR 0x68
+#define OLED_ADDR 0x3C
+
+unsigned char img_stop[] = {
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000
+};
+
+unsigned char img_armed[] = {
+    0b00000000, 0b00000000,
+    0b00011111, 0b10000000,
+    0b00111111, 0b11000000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b00111111, 0b11000000,
+    0b00011111, 0b10000000,
+    0b00000000, 0b00000000,
+    0b00111001, 0b11000000,
+    0b00111001, 0b11000000,
+    0b00111001, 0b11000000,
+    0b00111001, 0b11000000,
+    0b00111001, 0b11000000,
+    0b00000000, 0b00000000
+};
+
+unsigned char img_record[] = {
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b00011111, 0b10000000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b11111111, 0b11110000,
+    0b11111111, 0b11110000,
+    0b11111111, 0b11110000,
+    0b11111111, 0b11110000,
+    0b01111111, 0b11100000,
+    0b01111111, 0b11100000,
+    0b00011111, 0b10000000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000
+};
+
+unsigned char img_error[] = {
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000,
+    0b11000000, 0b00110000,
+    0b01100000, 0b01100000,
+    0b00110000, 0b11000000,
+    0b00011001, 0b10000000,
+    0b00001111, 0b00000000,
+    0b00000110, 0b00000000,
+    0b00000110, 0b00000000,
+    0b00001111, 0b00000000,
+    0b00011000, 0b10000000,
+    0b00110000, 0b11000000,
+    0b01100000, 0b01100000,
+    0b11000000, 0b00110000,
+    0b00000000, 0b00000000,
+    0b00000000, 0b00000000
+};
+
+
 #endif
 
+bool        oled_isRx=false;
+bool        oled_24bit=false;
+smpl_t      oled_samples=smpl_t::KNONE; //maybe need more types?
+uint64_t    oled_free=0;
+bool        oled_asplit=true;
+time_mode_t oled_time=time_mode_t::NONE;
+uint8_t     oled_buff=0;
+//--- main mode and time double row
+uint32_t    oled_volL=0;
+uint32_t    oled_volR=0;
+play_mode_t oled_mode=play_mode_t::STOP;
+uint8_t     oled_hour=0;
+uint8_t     oled_min=0;
+uint8_t     oled_sec=0;
+uint8_t     oled_frame=0;     // 1/75th of a sec (works even 44k1 and 48k samples -- even if it is not necessary)
+//--- bottom filename row
+char       oled_fnam[28]="-- Pico-S/PDIF-Recorder --";
 
 static constexpr uint8_t PIN_SWITCH_24BIT      = 6;
 
@@ -176,7 +277,7 @@ static bool _check_pico_w()
 #endif
 }
 
-#if defined BATTRTC || defined OLED
+#ifdef BATTRTC
 // Write n byte(s) to the specified register
 int reg_write(  i2c_inst_t *i2c, 
                 const uint addr, 
@@ -234,6 +335,7 @@ uint8_t bcdToDec(uint8_t val) {
 }
 
 
+//interactive date-time adjustment w/ getchar() & putchar()
 bool read_datetime(char* i2cdata, char delim){
     int chr;
     uint8_t idx=0;
@@ -312,6 +414,236 @@ bool read_datetime(char* i2cdata, char delim){
         sleep_ms(10);
     }
 }
+#endif
+
+#ifdef OLED
+uint8_t calcVU(uint32_t value, bool bits24){
+    //calc a UV value 0-16 from input   -- based on dB ( 20*log10(val/range) )
+    if (bits24){          //24bit input -- actually full range would be a waste, so only cover 145/2~=72dB
+        //-3 to 0
+        if(value>11877359) return 15;
+        //-8 to -3
+        if(value>6679129)  return 14;
+        //-13 to -8
+        if(value>3755950)  return 13;
+        //-18 to -13
+        if(value>2112126)  return 12;
+        //-23 to -18
+        if(value>1187735)  return 11;
+        //-28 to -23
+        if(value>667912)   return 10;
+        //-33 to -28
+        if(value>375595)   return 9;
+        //-38 to -33
+        if(value>211212)   return 8;
+        //-43 to -38
+        if(value>118773)   return 7;
+        //-48 to -43
+        if(value>66791)    return 6;
+        //-53 to -48
+        if(value>37559)    return 5;
+        //-58 to -53
+        if(value>21121)    return 4;
+        //-63 to -58
+        if(value>11877)    return 3;
+        //-68 to -63dB
+        if(value>6679)     return 2;
+        //-73 to -68dB
+        if(value>3755)     return 1;
+        return 0;    
+    }else{        //16bit input -- actually full range would be a waste, so only cover 96/2~=45dB
+        //-3 to 0
+        if(value>46395) return 15;
+        //-6 to -3
+        if(value>32845) return 14;
+        //-9 to -6
+        if(value>23253) return 13;
+        //-12 to -9
+        if(value>16461) return 12;
+        //-15 to -12
+        if(value>11653) return 11;
+        //-18 to -15
+        if(value>8250)  return 10;
+        //-21 to -18
+        if(value>5840)  return 9;
+        //-24 to -21
+        if(value>4135)  return 8;
+        //-27 to -24
+        if(value>2927)  return 7;
+        //-30 to -27
+        if(value>2072)  return 6;
+        //-33 to -30
+        if(value>1467)  return 5;
+        //-36 to -33
+        if(value>1038)  return 4;
+        //-39 to -36
+        if(value>735)   return 3;
+        //-42 to -39dB
+        if(value>520)   return 2;
+        //-45 to -42dB
+        if(value>368)   return 1;
+        return 0;    
+    }
+}
+
+void num2char(char* data, uint8_t value){
+    value=value % 100;
+    data[1]=(value % 10)+'0';
+    data[0]=((value / 10) % 10)+'0';
+}
+
+void composeScreen(pico_ssd1306::SSD1306 *display){
+    char chrtmp[6]="     ";
+    //generate screen using the oled variables
+    display->clear();
+    //drawText(display, font_5x8, "Rx 24b 96k 256G A RTC 99%",0,0);
+    if (oled_isRx){
+        drawText(display, font_5x8, "Rx",0,0);
+    }else{
+        drawText(display, font_5x8, "--",0,0);
+    }
+
+    if (oled_24bit){
+        drawText(display, font_5x8, "24b",15,0);
+    }else{
+        drawText(display, font_5x8, "16b",15,0);
+    }
+
+    if (oled_samples==smpl_t::K192){
+        drawText(display, font_5x8, "192k",30,0);
+    }else if(oled_samples==smpl_t::K176) {
+        drawText(display, font_5x8, "176k",30,0);
+    }else if(oled_samples==smpl_t::K96) {
+        drawText(display, font_5x8, " 96k",30,0);
+    }else if(oled_samples==smpl_t::K88) {
+        drawText(display, font_5x8, " 88k",30,0);
+    }else if(oled_samples==smpl_t::K48){
+        drawText(display, font_5x8, " 48k",30,0);
+    }else if(oled_samples==smpl_t::K44) {
+        drawText(display, font_5x8, " 44k",30,0);
+    }else{  //KNONE -- not samples received
+        drawText(display, font_5x8, " --k",30,0);
+    }
+
+    ///calc free space from bytes to most significant prefix  -- sorry, i still use 1024
+    uint64_t dispfree=oled_free;
+    //printf("ppdispfre %llx \r\n",oled_free);
+    if (dispfree>1024){
+        dispfree/=1024;
+        chrtmp[4]='K';      //Kbytes
+        if (dispfree>1024){
+            dispfree/=1024;
+            chrtmp[4]='M';  //Mbytes
+            if (dispfree>1024){
+                dispfree/=1024;
+                chrtmp[4]='G';  //Gbytes
+                if (dispfree>1024){
+                    dispfree/=1024;
+                    chrtmp[4]='T';  //Tbytes    -- i dont think bigger SD can be possible
+                }
+            }
+        }
+    }
+    //printf("dispfre %llu %c\r\n",dispfree,chrtmp[4]);
+    chrtmp[3]=dispfree % 10+'0';
+    if (dispfree/=10){
+        chrtmp[2]=(dispfree % 10)+'0';
+    }
+    if (dispfree/=10){
+        chrtmp[1]=(dispfree % 10)+'0';
+    }
+    if (dispfree/=10){
+        chrtmp[0]=(dispfree % 10)+'0';
+    }
+    chrtmp[5]=0;
+    drawText(display, font_5x8,chrtmp,50,0);
+
+    if (oled_asplit){
+        drawText(display, font_5x8, "A",80,0);
+    }else{
+        drawText(display, font_5x8, "N",80,0);
+    }
+
+    if(oled_time==time_mode_t::NTP) {
+        drawText(display, font_5x8, "NTP",90,0);
+    }else if(oled_time==time_mode_t::RTC){
+        drawText(display, font_5x8, "RTC",90,0);
+    }else{  //NONE -- only use suffix numbers
+        drawText(display, font_5x8, "nTi",90,0);
+    }
+
+    if(oled_buff>=100){
+        drawText(display, font_5x8, "1",105,0);
+    }
+    num2char(chrtmp,oled_buff % 100);
+    chrtmp[2]='%';
+    chrtmp[3]=0;
+    drawText(display, font_5x8,chrtmp,110,0);
+
+    //level indicators
+    uint8_t vl,vr;
+    vl=calcVU(oled_volL,oled_24bit);
+    vr=calcVU(oled_volR,oled_24bit);
+    for (int y = 0; y < 16; y++){
+        if (vl>y){
+            display->setPixel(0, 24-y);
+            display->setPixel(1, 24-y);
+        }
+        if (vr>y){
+            display->setPixel(5, 24-y);
+            display->setPixel(6, 24-y);
+        }
+    }
+
+    //operation mode
+    //drawText(display, font_12x16, "O",7,8);
+    if (oled_mode==play_mode_t::STOP){
+        // #
+        display->addBitmapImage(10, 9, 16, 16, img_stop);
+        //drawText(display, font_12x16, "#",7,9);
+    }else if(oled_mode==play_mode_t::ARMED){
+        // !
+        display->addBitmapImage(10, 9, 16, 16, img_armed);
+        //drawText(display, font_12x16, "!",7,9);
+    }else if(oled_mode==play_mode_t::RECORD){
+        //  O
+        display->addBitmapImage(10, 9, 16, 16, img_record);
+        //drawText(display, font_12x16, "O",7,9);
+    }else{  //ERROR
+        //  X
+        display->addBitmapImage(10, 9, 16, 16, img_error);
+        //drawText(display, font_12x16, "X",7,9);
+    }
+
+    //recording time (for the actual file)
+    drawText(display, font_12x16, ":",37,8);
+    drawText(display, font_12x16, ":",67,8);
+    drawText(display, font_12x16, ".",97,10);
+
+    chrtmp[0]=(oled_hour % 10)+'0';
+    chrtmp[1]=0;
+    chrtmp[2]=0;
+    drawText(display, font_12x16, chrtmp,27,9);
+
+    num2char(chrtmp,oled_min % 100);
+    drawText(display, font_12x16, chrtmp,45,9);
+
+    num2char(chrtmp,oled_sec % 100);
+    drawText(display, font_12x16, chrtmp,75,9);
+
+    num2char(chrtmp,oled_frame % 100);
+    drawText(display, font_12x16, chrtmp,104,9);
+    //drawText(display, font_12x16, "0",27,8);
+    //drawText(display, font_12x16, "00",45,8);
+    //drawText(display, font_12x16, "00",75,8);
+    //drawText(display, font_12x16, "00",104,8);
+
+
+    drawText(display, font_5x8,oled_fnam,0,24);
+
+    display->sendBuffer();
+}
+
 
 #endif
 
@@ -372,8 +704,8 @@ static bool _fatfs_init()
     pico_fatfs_set_config(&fatfs_spi_config);
 
     // Mount FATFS
-    FATFS fs;
-    FRESULT fr = f_mount(&fs, "", 1);
+    FATFS *fs=new FATFS;
+    FRESULT fr = f_mount(fs, "", 1);
     if (fr != FR_OK) {
         printf("FATFS mount error %d\r\n", fr);
         return false;
@@ -381,11 +713,11 @@ static bool _fatfs_init()
     printf("FATFS mount ok\r\n");
 
     // Print card info
-    const char* format = (fs.fs_type == FS_FAT12) ? "FAT12" :
-                         (fs.fs_type == FS_FAT16) ? "FAT16" :
-                         (fs.fs_type == FS_FAT32) ? "FAT32" :
-                         (fs.fs_type == FS_EXFAT) ? "exFAT" : "unknown format";
-    printf("Card info: %s %7.2f GB (GB = 1E9 Bytes)\n\n", format, fs.csize * fs.n_fatent * 512E-9);
+    const char* format = (fs->fs_type == FS_FAT12) ? "FAT12" :
+                         (fs->fs_type == FS_FAT16) ? "FAT16" :
+                         (fs->fs_type == FS_FAT32) ? "FAT32" :
+                         (fs->fs_type == FS_EXFAT) ? "exFAT" : "unknown format";
+    printf("Card info: %s %7.2f GB (GB = 1E9 Bytes)\n\n", format, fs->csize * fs->n_fatent * 512E-9);
 
     return true;
 }
@@ -475,14 +807,18 @@ static void _toggle_start_stop(const bits_per_sample_t bits_per_sample, bool& wa
     if (spdif_rec_wav::is_standby()) {
         if (user_standy) {
             printf("cancelled\r\n");
-            put_pixel(CL_STOP);          
+            put_pixel(CL_STOP);
             spdif_rec_wav::end_recording();
+            oled_mode=play_mode_t::STOP;
+            oled_volL=0;
+            oled_volR=0;
             user_standy = false;
             standby_repeat = false;
         } else {
             // no command needed because already in standby
             printf("start when sound detected\r\n");
-            put_pixel(CL_ARMED);           
+            put_pixel(CL_ARMED);
+            oled_mode=play_mode_t::ARMED;
             user_standy = true;
             standby_repeat = true;
         }
@@ -492,21 +828,26 @@ static void _toggle_start_stop(const bits_per_sample_t bits_per_sample, bool& wa
         standby_repeat = false;
     } else if (wait_sync) {
         printf("wait_sync cancelled\r\n");
-        put_pixel(CL_STOP);          
-    wait_sync = false;
+        put_pixel(CL_STOP);
+        oled_mode=play_mode_t::STOP;
+        oled_volL=0;
+        oled_volR=0;
+        wait_sync = false;
         user_standy = false;
         standby_repeat = false;
     } else if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE) {
         printf("start when sound detected\r\n");
-        put_pixel(CL_ARMED);         
-    spdif_rec_wav::start_recording(bits_per_sample, true);  // standby start
+        put_pixel(CL_ARMED);
+        oled_mode=play_mode_t::ARMED;
+        spdif_rec_wav::start_recording(bits_per_sample, true);  // standby start
         wait_sync = false;
         user_standy = true;
         standby_repeat = true;
     } else {
         printf("start when stable sync detected\r\n");
-        put_pixel(CL_ARMED);          
-    wait_sync = true;
+        put_pixel(CL_ARMED);
+        oled_mode=play_mode_t::ARMED;
+        wait_sync = true;
         user_standy = true;
         standby_repeat = true;
     }
@@ -571,6 +912,10 @@ int main()
     i2c_inst_t* i2crtc=I2C_RTC;
 #endif
 
+#ifdef OLED
+    i2c_inst_t* i2coled=I2C_OLED;
+#endif
+
     bool standby_repeat = true;
     bits_per_sample_t bits_per_sample = bits_per_sample_t::_24BITS;
     int chr;
@@ -604,6 +949,8 @@ int main()
     // Initialize I2C pins
     gpio_set_function(I2C_RTC_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_RTC_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_RTC_SDA);
+    gpio_pull_up(I2C_RTC_SCL);
 
     if (reg_read(i2crtc,RTC_ADDR,0,i2data,7) != 7){
         printf("ERROR: RTC read failed\r\n");
@@ -623,11 +970,90 @@ int main()
 
             printf("RTC date: %d-%02d-%02d %02d:%02d:%02d \r\n",t_rtc.tm_year+1900,t_rtc.tm_mon+1,t_rtc.tm_mday,t_rtc.tm_hour,t_rtc.tm_min,t_rtc.tm_sec);
             spdif_rec_wav::use_rtc();
+            oled_time=time_mode_t::RTC;
         }
     }
 
 #endif
 
+#ifdef OLED
+    //Initialize I2C port at 400 kHz
+    i2c_init(i2coled, 400 * 1000);
+
+    // Initialize I2C pins
+    gpio_set_function(I2C_OLED_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_OLED_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_OLED_SDA);
+    gpio_pull_up(I2C_OLED_SCL);
+
+    pico_ssd1306::SSD1306 display = pico_ssd1306::SSD1306(i2coled, OLED_ADDR, pico_ssd1306::Size::W128xH32);
+
+    // //create a vertical line on x: 64 y:0-32
+    // for (int y = 0; y < 32; y++){
+    //     display.setPixel(64, y);
+    // }
+    // display.sendBuffer(); //Send buffer to device and show on screen
+
+    // -- draw intro --
+    
+    // drawText(&display, font_16x32, "- PICO -",0,0);
+    // display.sendBuffer();
+    // sleep_ms(1000);
+    // display.clear();
+    // drawText(&display, font_16x32, "SPDIF RECORDER",0,0);
+    // display.sendBuffer();
+    // sleep_ms(500);
+    // for (int t=0; t<96; t++ )
+    // {
+    //     display.clear();
+    //     drawText(&display, font_16x32, "SPDIF RECORDER",0-t,0);
+    //     display.sendBuffer();
+    // }
+    // sleep_ms(1000);
+    // display.clear();
+
+    // test text                  input present     wifi_ntp or RTC or nTi (no time)
+    //                            |  16/24bit       |   input buffer level
+    //                            |  |     autoSplit|   |
+    //                            |  |    SD free | |   |
+    //                            |  | smpl rate| | |   |
+    //                            |  |  |       | | |   |   
+ // drawText(&display, font_5x8, "-- 16b192k 999G N ntp 00%",0,0);
+
+ // drawText(&display, font_5x8, "Rx 24b 96k 256G A RTC 99%",0,0);
+
+    // //Mode icon + 999h + msec or frame? ---- can only record less than 10 hours in one file (4GB split!!)
+    // drawText(&display, font_12x16, "O",0,8);
+    // drawText(&display, font_12x16, ":",46,7);
+    // drawText(&display, font_12x16, ":",73,7);
+    // drawText(&display, font_12x16, ".",99,9);
+    // drawText(&display, font_12x16, "000",13,8);
+    // drawText(&display, font_12x16, "00",52,8);
+    // drawText(&display, font_12x16, "00",79,8);
+    // drawText(&display, font_12x16, "00",104,8);
+
+    // Mode icon + 9h + msec or frame
+    ///input signal bar
+    // for (int y = 8; y < 24; y++){
+    //     display.setPixel(0, y);
+    //     display.setPixel(1, y);
+    //     display.setPixel(3, y);
+    //     display.setPixel(4, y);
+    // }
+    drawText(&display, font_12x16, "O",7,8);
+    drawText(&display, font_12x16, ":",37,7);
+    drawText(&display, font_12x16, ":",67,7);
+    drawText(&display, font_12x16, ".",97,9);
+    drawText(&display, font_12x16, "0",27,8);
+    drawText(&display, font_12x16, "00",45,8);
+    drawText(&display, font_12x16, "00",75,8);
+    drawText(&display, font_12x16, "00",104,8);
+
+
+
+    drawText(&display, font_5x8, " - - - - Init - - - - ",0,23);
+    display.sendBuffer();
+#endif
 
 
     // print configuration parameters in flash
@@ -670,6 +1096,7 @@ int main()
 #else
     bits_per_sample = gpio_get(PIN_SWITCH_24BIT) ? bits_per_sample_t::_16BITS : bits_per_sample_t::_24BITS;
 #endif
+    oled_24bit=(bits_per_sample==bits_per_sample_t::_24BITS);
 
     //printf("Pico3\r\n");
 
@@ -677,7 +1104,8 @@ int main()
 
     //put_pixel(urgb_u32(0x0f, 0x00, 0x00));
     put_pixel(CL_STOP);
-
+    oled_mode=play_mode_t::STOP;
+    oled_asplit=spdif_rec_wav::get_blank_split();
 
     // spdif_rx initialize
     _spdif_rx_init();
@@ -698,6 +1126,8 @@ int main()
                 if (!run_ntp("UTC+0", t_rtc)) {
                     printf("ERROR: failed NTP sync\r\n");
                     _led_disp_error(main_error_t::NTP_ERROR);
+                }else{
+                    oled_time=time_mode_t::NTP;
                 }
             } else {
                 printf("ERROR: failed Wi-Fi connection: %s\r\n", GET_CFG_WIFI_SSID);
@@ -724,6 +1154,13 @@ int main()
         _led_disp_error(main_error_t::FATFS_ERROR, true);
         return 1;
     }
+    FATFS* fres;    //allocated and used by FatFS
+    DWORD fre_clust, fre_sect;
+    f_getfree("0:",&fre_clust,&fres);
+    //printf("SDfree %d x clust %d \r\n",fre_clust, fs->csize);
+    oled_free =(uint64_t) fre_clust * (fres->csize) * 512;
+    printf("SDfree %llu bytes\r\n",oled_free);
+
 
     spdif_rec_wav::set_wait_grant_func(_led_blink_during_wait);
     // spdif_rec_wav process runs on Core1
@@ -743,14 +1180,39 @@ int main()
         if (!core1_running) {
             printf("ERROR: spdif_rec_wav process_loop exit\r\n");
             put_pixel(CL_ERROR);
+            oled_mode=play_mode_t::ERROR;
             break;
         }
         if (stable_flg) {
             stable_flg = false;
             printf("detected stable sync @ %d Hz\r\n", spdif_rx_get_samp_freq());
+            oled_isRx=true;
+            switch(spdif_rx_get_samp_freq()){
+                case SAMP_FREQ_192000:
+                    oled_samples=smpl_t::K192;
+                    break;
+                case SAMP_FREQ_176400:
+                    oled_samples=smpl_t::K176;
+                    break;
+                case SAMP_FREQ_96000:
+                    oled_samples=smpl_t::K96;
+                    break;
+                case SAMP_FREQ_88200:
+                    oled_samples=smpl_t::K88;
+                    break;
+                case SAMP_FREQ_48000:
+                    oled_samples=smpl_t::K48;
+                    break;
+                case SAMP_FREQ_44100:
+                    oled_samples=smpl_t::K44;
+                    break;
+                default:
+                    oled_samples=smpl_t::KNONE;
+            }
             //printf("Pico6\r\n");
             if (wait_sync) {
                     put_pixel(CL_ARMED);
+                    oled_mode=play_mode_t::ARMED;
                     printf("start when sound detected\r\n");
                 spdif_rec_wav::start_recording(bits_per_sample, true);  // standby start
                 wait_sync = false;
@@ -760,7 +1222,12 @@ int main()
         if (lost_stable_flg) {
             lost_stable_flg = false;
             printf("lost stable sync. waiting for signal\r\n");
+            oled_isRx=false;
+            oled_samples=smpl_t::KNONE;
             put_pixel(CL_STOP);
+            oled_mode=play_mode_t::STOP;
+            oled_volL=0;
+            oled_volR=0;
             if (spdif_rec_wav::is_standby() || spdif_rec_wav::is_recording()) {
                 spdif_rec_wav::end_recording();
                 wait_sync = standby_repeat;
@@ -802,10 +1269,12 @@ int main()
                 if (spdif_rec_wav::is_standby() || spdif_rec_wav::is_recording()) {
                     _toggle_start_stop(bits_per_sample, wait_sync, user_standy, standby_repeat);
                     _toggle_bit_resolution(bits_per_sample);
+                    oled_24bit=(bits_per_sample==bits_per_sample_t::_24BITS);
                     sleep_ms(100);
                     _toggle_start_stop(bits_per_sample, wait_sync, user_standy, standby_repeat);
                 } else {
                     _toggle_bit_resolution(bits_per_sample);
+                    oled_24bit=(bits_per_sample==bits_per_sample_t::_24BITS);
                 }
                 printf("bit resolution: %d bits\r\n", bits_per_sample);
             } else if (c == 's') {
@@ -815,6 +1284,7 @@ int main()
             } else if (c == 'b') {
                 bool blank_split = !spdif_rec_wav::get_blank_split();
                 spdif_rec_wav::set_blank_split(blank_split);
+                oled_asplit=(blank_split);
                 printf("blank split: %s\r\n", blank_split ? "on" : "off");
             } else if (c == 'v') {
                 bool verbose = !spdif_rec_wav::get_verbose();
@@ -837,6 +1307,7 @@ int main()
                             if (run_ntp("UTC+0", t_rtc)) {
                                 //rtc_set_datetime(&t_rtc);
                                 aon_timer_set_time_calendar(&t_rtc);
+                                oled_time=time_mode_t::NTP;
                             }
                         }
                     } else {
@@ -898,15 +1369,24 @@ int main()
             while (getchar_timeout_us(1) != PICO_ERROR_TIMEOUT) {};
         }
         if (spdif_rec_wav::is_recording()) {
+            oled_mode=play_mode_t::RECORD;
             put_pixel((_millis() /50) % 0x2F << 8);
             _set_led((_millis() / 500) % 2 == 0);
         } else {
             _set_led(false);
-            if ((!wait_sync) && (!user_standy))
+            if ((!wait_sync) && (!user_standy)){
                 put_pixel(CL_STOP);
-            else
+                oled_mode=play_mode_t::STOP;
+                oled_volL=0;
+                oled_volR=0;
+            }else{
                 put_pixel(CL_ARMED);
+                oled_mode=play_mode_t::ARMED;
+            }
         }
+#ifdef OLED        
+        composeScreen(&display);
+#endif
 
         // background file process on core0
         spdif_rec_wav::process_wav_file_cmd();
@@ -920,6 +1400,12 @@ int main()
 
     put_pixel(CL_ERROR);            
     _led_disp_error(main_error_t::MAIN_LOOP_ABORTED_ERROR, true);
+    oled_mode=play_mode_t::ERROR;
+    sprintf(oled_fnam,"Main loop exit!\0");
+
+#ifdef OLED    
+    composeScreen(&display);
+#endif
 
     return 0;
 }

@@ -12,9 +12,7 @@
 
 #define RTCSUFX         //use RTC date_time as suffix
 
-#ifdef RTCSUFX
 #include "pico/aon_timer.h"
-#endif
 
 
 extern "C" {

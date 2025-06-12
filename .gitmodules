@@ -7,3 +7,6 @@
 [submodule "lib/pico_audio_i2s_32b"]
 	path = lib/pico_audio_i2s_32b
 	url = git@github.com:elehobica/pico_audio_i2s_32b.git
+[submodule "lib/pico-ssd1306"]
+	path = lib/pico-ssd1306
+	url = git@github.com:Harbys/pico-ssd1306.git

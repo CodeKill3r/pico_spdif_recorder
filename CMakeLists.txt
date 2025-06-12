@@ -19,6 +19,7 @@ add_subdirectory(lib/pico_fatfs_customized)
 add_subdirectory(lib/pico_ntp_client)
 add_subdirectory(lib/config_wifi)
 add_subdirectory(lib/picoConfigParam)
+add_subdirectory(lib/pico-ssd1306)
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
@@ -46,6 +47,7 @@ target_link_libraries(${PROJECT_NAME}
     pico_ntp_client
     config_wifi
     picoConfigParam
+    pico_ssd1306
 )
 
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
