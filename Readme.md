@@ -1,6 +1,6 @@
 # Raspberry Pi Pico spdif_recorder
 
-![PCB Front](doc/pico_spdif_recorder_pcb_front.jpg)
+![PCB Front](doc/rec_oled.jpg)
 
 ## Overview
 * Hi-Res recorder from S/PDIF input to WAV files on microSD card
