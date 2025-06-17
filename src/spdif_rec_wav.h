@@ -11,6 +11,7 @@
 #include "spdif_rx.h"
 
 #define RTCSUFX         //use RTC date_time as suffix
+//#define W64             //if fsys==exFat use W64 file -- otherwise use RF64
 
 #include "pico/aon_timer.h"
 
@@ -50,6 +51,9 @@ public:
     // functions called from core0
     static void no_rtc();
     static void use_rtc();
+    static void usew64();
+    static void usew32();
+    static void set_fsys(uint8_t);
     static void set_wait_grant_func(void (*func)());
     static bool is_standby();
     static bool is_recording();
@@ -69,6 +73,8 @@ public:
     static void report_error(const error_type_t type, const uint32_t param = 0L);
     static void log_printf(const char* fmt, ...);
     static bool isRtc();
+    static bool noW64();
+    static uint8_t get_fsys();
 
     // === Public member functions ===
     // functions called from core0
@@ -141,6 +147,8 @@ protected:
     static queue_t _record_cmd_queue;
     static queue_t _error_queue;
     static bool _useRtc;
+    static bool _usew32;
+    static uint8_t _fsys;
 
 
     // === Constructor and Destructor (Prohibit) ===

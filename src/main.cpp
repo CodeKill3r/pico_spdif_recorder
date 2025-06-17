@@ -171,7 +171,7 @@ uint8_t     oled_buff=0;
 uint32_t    oled_volL=0;
 uint32_t    oled_volR=0;
 play_mode_t oled_mode=play_mode_t::STOP;
-uint8_t     oled_hour=0;
+uint16_t    oled_hour=0;
 uint8_t     oled_min=0;
 uint8_t     oled_sec=0;
 uint8_t     oled_frame=0;     // 1/75th of a sec (works even 44k1 and 48k samples -- even if it is not necessary)
@@ -590,8 +590,8 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
             display->setPixel(1, 24-y);
         }
         if (vr>y){
+            display->setPixel(4, 24-y);
             display->setPixel(5, 24-y);
-            display->setPixel(6, 24-y);
         }
     }
 
@@ -599,45 +599,68 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
     //drawText(display, font_12x16, "O",7,8);
     if (oled_mode==play_mode_t::STOP){
         // #
-        display->addBitmapImage(10, 9, 16, 16, img_stop);
+        display->addBitmapImage(8, 9, 16, 16, img_stop);
         //drawText(display, font_12x16, "#",7,9);
     }else if(oled_mode==play_mode_t::ARMED){
         // !
-        display->addBitmapImage(10, 9, 16, 16, img_armed);
+        display->addBitmapImage(8, 9, 16, 16, img_armed);
         //drawText(display, font_12x16, "!",7,9);
     }else if(oled_mode==play_mode_t::RECORD){
         //  O
-        display->addBitmapImage(10, 9, 16, 16, img_record);
+        display->addBitmapImage(8, 9, 16, 16, img_record);
         //drawText(display, font_12x16, "O",7,9);
     }else{  //ERROR
         //  X
-        display->addBitmapImage(10, 9, 16, 16, img_error);
+        display->addBitmapImage(8, 9, 16, 16, img_error);
         //drawText(display, font_12x16, "X",7,9);
     }
 
-    //recording time (for the actual file)
-    drawText(display, font_12x16, ":",37,8);
-    drawText(display, font_12x16, ":",67,8);
-    drawText(display, font_12x16, ".",97,10);
+    if (oled_hour<100){
+        //use 12x16 font
+        //recording time (for the actual file)
+        drawText(display, font_12x16, ":",43,8);
+        drawText(display, font_12x16, ":",71,8);
+        drawText(display, font_12x16, ".",98,10);
 
-    chrtmp[0]=(oled_hour % 10)+'0';
-    chrtmp[1]=0;
-    chrtmp[2]=0;
-    drawText(display, font_12x16, chrtmp,27,9);
+        chrtmp[2]=0;
+        num2char(chrtmp,oled_hour % 100);
+        drawText(display, font_12x16, chrtmp,22,9);
 
-    num2char(chrtmp,oled_min % 100);
-    drawText(display, font_12x16, chrtmp,45,9);
+        num2char(chrtmp,oled_min % 100);
+        drawText(display, font_12x16, chrtmp,50,9);
 
-    num2char(chrtmp,oled_sec % 100);
-    drawText(display, font_12x16, chrtmp,75,9);
+        num2char(chrtmp,oled_sec % 100);
+        drawText(display, font_12x16, chrtmp,78,9);
 
-    num2char(chrtmp,oled_frame % 100);
-    drawText(display, font_12x16, chrtmp,104,9);
-    //drawText(display, font_12x16, "0",27,8);
-    //drawText(display, font_12x16, "00",45,8);
-    //drawText(display, font_12x16, "00",75,8);
-    //drawText(display, font_12x16, "00",104,8);
+        num2char(chrtmp,oled_frame % 100);
+        drawText(display, font_12x16, chrtmp,104,9);
+        //drawText(display, font_12x16, "0",27,8);
+        //drawText(display, font_12x16, "00",45,8);
+        //drawText(display, font_12x16, "00",75,8);
+        //drawText(display, font_12x16, "00",104,8);
+    }else{
+        //use 8x8 font
+        drawText(display, font_8x8, ":",62,12);
+        drawText(display, font_8x8, ":",83,12);
+        drawText(display, font_8x8, ".",104,14);
 
+        //drawText(&display, font_8x8, "0000",32,13);
+        chrtmp[2]=0;
+        num2char(chrtmp,(oled_hour /100) % 100);
+        drawText(display, font_8x8, chrtmp,32,13);
+
+        num2char(chrtmp,oled_hour % 100);
+        drawText(display, font_8x8, chrtmp,48,13);
+
+        num2char(chrtmp,oled_min % 100);
+        drawText(display, font_8x8, chrtmp,69,13);
+
+        num2char(chrtmp,oled_sec % 100);
+        drawText(display, font_8x8, chrtmp,90,13);
+
+        num2char(chrtmp,oled_frame % 100);
+        drawText(display, font_8x8, chrtmp,110,13);
+    }
 
     drawText(display, font_5x8,oled_fnam,0,24);
 
@@ -717,6 +740,11 @@ static bool _fatfs_init()
                          (fs->fs_type == FS_FAT16) ? "FAT16" :
                          (fs->fs_type == FS_FAT32) ? "FAT32" :
                          (fs->fs_type == FS_EXFAT) ? "exFAT" : "unknown format";
+    spdif_rec_wav::set_fsys(fs->fs_type);
+    if (fs->fs_type != FS_EXFAT){
+        spdif_rec_wav::usew32();
+    }
+
     printf("Card info: %s %7.2f GB (GB = 1E9 Bytes)\n\n", format, fs->csize * fs->n_fatent * 512E-9);
 
     return true;
@@ -737,11 +765,15 @@ static void _show_help(const bits_per_sample_t bits_per_sample)
     printf(" bit resolution: %d bits\r\n", static_cast<int>(bits_per_sample));
     printf(" blank split:    %s\r\n", spdif_rec_wav::get_blank_split() ? "on" : "off");
     printf(" verbose:        %s\r\n", spdif_rec_wav::get_verbose() ? "on" : "off");
+if (spdif_rec_wav::get_fsys()==FS_EXFAT){
+    printf(" wave64 mode:    %s\r\n", spdif_rec_wav::noW64() ? "off" : "on");
+    }
     printf(" suffix to rec:  %03d\r\n", spdif_rec_wav::get_suffix());
     printf("---------------------------\r\n");
     printf("[serial interface help]\r\n");
     printf(" ' ' to start/stop recording\r\n");
     printf(" 'r' to switch 16/24 bits\r\n");
+    printf("     *stops current recording\r\n");
     printf(" 's' to manual split (*1)\r\n");
     printf(" 'b' to toggle auto blank split\r\n");
     printf(" 'v' to toggle verbose\r\n");
@@ -753,6 +785,9 @@ static void _show_help(const bits_per_sample_t bits_per_sample)
     printf(" 't' to set RTC time (*2)\r\n");
     printf(" 'd' to set RTC date (*2)\r\n");
 #endif 
+    if (spdif_rec_wav::get_fsys()==FS_EXFAT){
+    printf(" '6' toggle 64bit wave (*2)\r\n");
+    }
     printf(" 'q' to show datetime\r\n");
     printf(" 'h' to show this help\r\n");
     printf("  (*1) only while recording\r\n");
@@ -1040,15 +1075,31 @@ int main()
     //     display.setPixel(3, y);
     //     display.setPixel(4, y);
     // }
-    drawText(&display, font_12x16, "O",7,8);
-    drawText(&display, font_12x16, ":",37,7);
-    drawText(&display, font_12x16, ":",67,7);
-    drawText(&display, font_12x16, ".",97,9);
-    drawText(&display, font_12x16, "0",27,8);
-    drawText(&display, font_12x16, "00",45,8);
-    drawText(&display, font_12x16, "00",75,8);
+
+    /////// 12x16 timer
+
+    display.addBitmapImage(8, 9, 16, 16, img_record);
+    //drawText(&display, font_12x16, "O",7,8);
+
+    drawText(&display, font_12x16, ":",43,7);
+    drawText(&display, font_12x16, ":",71,7);
+    drawText(&display, font_12x16, ".",98,9);
+    drawText(&display, font_12x16, "00",22,8);
+    drawText(&display, font_12x16, "00",50,8);
+    drawText(&display, font_12x16, "00",78,8);
     drawText(&display, font_12x16, "00",104,8);
 
+    // ////// 8x8 timer
+
+    // display.addBitmapImage(8, 9, 16, 16, img_record);
+
+    // drawText(&display, font_8x8, ":",62,12);
+    // drawText(&display, font_8x8, ":",83,12);
+    // drawText(&display, font_8x8, ".",104,14);
+    // drawText(&display, font_8x8, "0000",32,13);
+    // drawText(&display, font_8x8, "00",69,13);
+    // drawText(&display, font_8x8, "00",90,13);
+    // drawText(&display, font_8x8, "00",110,13);
 
 
     drawText(&display, font_5x8, " - - - - Init - - - - ",0,23);
@@ -1359,6 +1410,15 @@ int main()
                     }
                 }
 #endif
+            } else if (c == '6') {
+                if ((spdif_rec_wav::get_fsys()==FS_EXFAT) &&  !spdif_rec_wav::is_standby() && !spdif_rec_wav::is_recording()) {
+                    bool isWave64 = spdif_rec_wav::noW64();
+                    if (isWave64)
+                        spdif_rec_wav::usew64();
+                    else
+                        spdif_rec_wav::usew32();
+                    printf("64bit wave: %s\r\n", isWave64 ? "on" : "off");
+                }
             } else if (c == 'q') {
                 aon_timer_get_time_calendar(&t_rtc);
                 printf("RTC date: %02d-%02d-%02d %02d:%02d:%02d \r\n",t_rtc.tm_year+1900,t_rtc.tm_mon+1,t_rtc.tm_mday,t_rtc.tm_hour,t_rtc.tm_min,t_rtc.tm_sec);

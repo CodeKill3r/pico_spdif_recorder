@@ -48,6 +48,8 @@ bool           spdif_rec_wav::_recording_flag = false;
 bool           spdif_rec_wav:: _blank_split = true;
 bool           spdif_rec_wav:: _verbose = false;
 bool           spdif_rec_wav:: _useRtc = false;
+bool           spdif_rec_wav:: _usew32 = false;
+uint8_t        spdif_rec_wav:: _fsys=0;
 queue_t        spdif_rec_wav::_spdif_queue;
 queue_t        spdif_rec_wav::_record_cmd_queue;
 queue_t        spdif_rec_wav::_error_queue;
@@ -64,6 +66,21 @@ void spdif_rec_wav::no_rtc()
 void spdif_rec_wav::use_rtc()
 {
     _useRtc=true;
+}
+
+void spdif_rec_wav::usew64()
+{
+    _usew32=false;
+}
+
+void spdif_rec_wav::usew32()
+{
+    _usew32=true;
+}
+
+void spdif_rec_wav::set_fsys(uint8_t fsys)
+{
+    _fsys=fsys;
 }
 
 void spdif_rec_wav::set_wait_grant_func(void (*func)())
@@ -492,6 +509,17 @@ bool spdif_rec_wav::isRtc()
 {
     return _useRtc;
 }
+
+uint8_t spdif_rec_wav::get_fsys()
+{
+    return _fsys;
+}
+
+bool spdif_rec_wav::noW64()
+{
+    return _usew32;
+}
+
 
 void spdif_rec_wav::_push_sub_frame_buf(const uint32_t* buff, const uint32_t sub_frame_count)
 {
