@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [alternate fork by CodeKill3r]
 
+## [1.1.2] - 2025-06-12
+### Added
+* Support for OLED module to display information and status
+* Real-time VU-meter
+* Adaptve font-size recording timer
+
 ## [1.1.1] - 2025-06-07
 ### Added
 * Support for "tiny RTC I2C module" 
