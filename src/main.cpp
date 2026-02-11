@@ -12,7 +12,10 @@
 //#define STARMED //power up in armed state -- it already listen and only record if there is signal / you dont even need a button to start recording
 #define BATTRTC //use battery backed RTC module (Tiny RTC I2C)
 //#define RTCSUFX --->> spdif_rec_wav.h
-#define OLED  //use OLED screen display
+#define OLED    //use OLED screen display
+#define NOSPLIT //disable autosplit (still buggy and introduces gaps due to high throughput reuirement and low amount of internal memory)
+#define STARMED //power up to prepare mode (automatic record if signal arrives)
+
 
 #include <cstdio>
 
@@ -81,7 +84,7 @@ static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 29;
 
 #define OLED_ADDR 0x3C
 
-unsigned char img_stop[] = {
+static unsigned char img_stop[] = {
     0b00000000, 0b00000000,
     0b00000000, 0b00000000,
     0b00000000, 0b00000000,
@@ -100,7 +103,7 @@ unsigned char img_stop[] = {
     0b00000000, 0b00000000
 };
 
-unsigned char img_armed[] = {
+static unsigned char img_armed[] = {
     0b00000000, 0b00000000,
     0b00011111, 0b10000000,
     0b00111111, 0b11000000,
@@ -119,7 +122,7 @@ unsigned char img_armed[] = {
     0b00000000, 0b00000000
 };
 
-unsigned char img_record[] = {
+static unsigned char img_record[] = {
     0b00000000, 0b00000000,
     0b00000000, 0b00000000,
     0b00000000, 0b00000000,
@@ -138,7 +141,7 @@ unsigned char img_record[] = {
     0b00000000, 0b00000000
 };
 
-unsigned char img_error[] = {
+static unsigned char img_error[] = {
     0b00000000, 0b00000000,
     0b00000000, 0b00000000,
     0b11000000, 0b00110000,
@@ -156,6 +159,251 @@ unsigned char img_error[] = {
     0b00000000, 0b00000000,
     0b00000000, 0b00000000
 };
+
+static constexpr uint32_t smallVu24[]={
+    11877359,       //-3 to 0
+    6679129,        //-8 to -3
+    3755950,        //-13 to -8
+    2112126,        //-18 to -13
+    1187735,        //-23 to -18
+    667912,         //-28 to -23
+    375595,         //-33 to -28
+    211212,         //-38 to -33
+    118773,         //-43 to -38
+    66791,          //-48 to -43
+    37559,          //-53 to -48
+    21121,          //-58 to -53
+    11877,          //-63 to -58
+    6679,           //-68 to -63dB
+    3755            //-73 to -68dB
+};
+static constexpr uint32_t smallVu16[]={               
+    46395,          //-3 to 0
+    32845,          //-6 to -3
+    23253,          //-9 to -6
+    16461,          //-12 to -9
+    11653,          //-15 to -12
+    8250,           //-18 to -15
+    5840,           //-21 to -18
+    4135,           //-24 to -21
+    2927,           //-27 to -24
+    2072,           //-30 to -27
+    1467,           //-33 to -30
+    1038,           //-36 to -33
+    735,            //-39 to -36
+    520,            //-42 to -39dB
+    368             //-45 to -42dB
+};
+
+static constexpr uint32_t bigVu24[]={
+    14732510,
+    12937002,
+    11360318,
+    9975792,
+    8760003,
+    7692387,
+    6754886,
+    5931641,
+    5208729,
+    4573920,
+    4016479,
+    3526975,
+    3097128,
+    2719669,
+    2388212,
+    2097152,
+    1841563,
+    1617125,
+    1420039,
+    1246974,
+    1095000,
+    961548,
+    844360,
+    741455,
+    651091,
+    571740,
+    502059,
+    440871,
+    387141,
+    339958,
+    298526,
+    262144,
+    230195,
+    202140,
+    177504,
+    155871,
+    136875,
+    120193,
+    105545,
+    92681,
+    81386,
+    71467,
+    62757,
+    55108,
+    48392,
+    42494,
+    37315,
+    32768,
+    28774,
+    25267,
+    22188,
+    19483,
+    17109,
+    15024,
+    13193,
+    11585,
+    10173,
+    8933,
+    7844,
+    6888,
+    6049,
+    5311,
+    4664,
+    4095,
+    3596,
+    3158,
+    2773,
+    2435,
+    2138,
+    1878,
+    1649,
+    1448,
+    1271,
+    1116,
+    980,
+    861,
+    756,
+    663,
+    583,
+    511,
+    449,
+    394,
+    346,
+    304,
+    267,
+    234,
+    206,
+    181,
+    158,
+    139,
+    122,
+    107,
+    94,
+    82,
+    72,
+    63,
+    56,
+    49,
+    43,
+    38
+};
+
+static constexpr uint32_t bigVu16[]={
+    60096,
+    55108,
+    50535,
+    46340,
+    42494,
+    38967,
+    35733,
+    32768,
+    30048,
+    27554,
+    25267,
+    23170,
+    21247,
+    19483,
+    17866,
+    16384,
+    15024,
+    13777,
+    12633,
+    11585,
+    10623,
+    9741,
+    8933,
+    8192,
+    7512,
+    6888,
+    6316,
+    5792,
+    5311,
+    4870,
+    4466,
+    4096,
+    3756,
+    3444,
+    3158,
+    2896,
+    2655,
+    2435,
+    2233,
+    2048,
+    1878,
+    1722,
+    1579,
+    1448,
+    1327,
+    1217,
+    1116,
+    1024,
+    939,
+    861,
+    789,
+    724,
+    663,
+    608,
+    558,
+    512,
+    469,
+    430,
+    394,
+    362,
+    331,
+    304,
+    279,
+    256,
+    234,
+    215,
+    197,
+    181,
+    165,
+    152,
+    139,
+    128,
+    117,
+    107,
+    98,
+    90,
+    82,
+    76,
+    69,
+    63,
+    58,
+    53,
+    49,
+    45,
+    41,
+    38,
+    34,
+    32,
+    29,
+    26,
+    24,
+    22,
+    20,
+    19,
+    17,
+    16,
+    14,
+    13,
+    12,
+    11
+};
+
+static constexpr uint32_t BIGVU = 1;    //using horizontal long VU instead of vertical 15px
+
+
 
 
 #endif
@@ -419,70 +667,34 @@ bool read_datetime(char* i2cdata, char delim){
 #ifdef OLED
 uint8_t calcVU(uint32_t value, bool bits24){
     //calc a UV value 0-16 from input   -- based on dB ( 20*log10(val/range) )
-    if (bits24){          //24bit input -- actually full range would be a waste, so only cover 145/2~=72dB
-        //-3 to 0
-        if(value>11877359) return 15;
-        //-8 to -3
-        if(value>6679129)  return 14;
-        //-13 to -8
-        if(value>3755950)  return 13;
-        //-18 to -13
-        if(value>2112126)  return 12;
-        //-23 to -18
-        if(value>1187735)  return 11;
-        //-28 to -23
-        if(value>667912)   return 10;
-        //-33 to -28
-        if(value>375595)   return 9;
-        //-38 to -33
-        if(value>211212)   return 8;
-        //-43 to -38
-        if(value>118773)   return 7;
-        //-48 to -43
-        if(value>66791)    return 6;
-        //-53 to -48
-        if(value>37559)    return 5;
-        //-58 to -53
-        if(value>21121)    return 4;
-        //-63 to -58
-        if(value>11877)    return 3;
-        //-68 to -63dB
-        if(value>6679)     return 2;
-        //-73 to -68dB
-        if(value>3755)     return 1;
-        return 0;    
-    }else{        //16bit input -- actually full range would be a waste, so only cover 96/2~=45dB
-        //-3 to 0
-        if(value>46395) return 15;
-        //-6 to -3
-        if(value>32845) return 14;
-        //-9 to -6
-        if(value>23253) return 13;
-        //-12 to -9
-        if(value>16461) return 12;
-        //-15 to -12
-        if(value>11653) return 11;
-        //-18 to -15
-        if(value>8250)  return 10;
-        //-21 to -18
-        if(value>5840)  return 9;
-        //-24 to -21
-        if(value>4135)  return 8;
-        //-27 to -24
-        if(value>2927)  return 7;
-        //-30 to -27
-        if(value>2072)  return 6;
-        //-33 to -30
-        if(value>1467)  return 5;
-        //-36 to -33
-        if(value>1038)  return 4;
-        //-39 to -36
-        if(value>735)   return 3;
-        //-42 to -39dB
-        if(value>520)   return 2;
-        //-45 to -42dB
-        if(value>368)   return 1;
-        return 0;    
+    if (BIGVU){
+        if (bits24){          //24bit input -- actually full range (145dB) would be a waste, so only cover -111 to 0 dB
+            for(uint8_t h=0;h<100;h++){
+                if (value>bigVu24[h])
+                    return 100-h;
+            }
+            return 0;    
+        }else{        //16bit input -- actually full range (96dB) would be a waste, so only cover -74 to 0 dB
+            for(uint8_t h=0;h<100;h++){
+                if (value>bigVu16[h])
+                    return 100-h;
+            }
+            return 0;    
+        }
+    }else{
+        if (bits24){          //24bit input -- actually full range would be a waste, so only cover 145/2~=72dB
+            for(uint8_t h=0;h<15;h++){
+                if (value>smallVu24[h])
+                    return 15-h;
+            }
+            return 0;    
+        }else{        //16bit input -- actually full range would be a waste, so only cover 96/2~=45dB
+            for(uint8_t h=0;h<15;h++){
+                if (value>smallVu16[h])
+                    return 15-h;
+            }
+            return 0;    
+        }
     }
 }
 
@@ -584,14 +796,29 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
     uint8_t vl,vr;
     vl=calcVU(oled_volL,oled_24bit);
     vr=calcVU(oled_volR,oled_24bit);
-    for (int y = 0; y < 16; y++){
-        if (vl>y){
-            display->setPixel(0, 24-y);
-            display->setPixel(1, 24-y);
+    if (BIGVU){
+        //100px horizontal
+        for (int x = 0; x <101 ; x++){
+            if (vl>x){
+                display->setPixel(26+x, 9);
+                display->setPixel(26+x, 10);
+            }
+            if (vr>x){
+                display->setPixel(26+x, 12);
+                display->setPixel(26+x, 13);
+            }
         }
-        if (vr>y){
-            display->setPixel(4, 24-y);
-            display->setPixel(5, 24-y);
+    }else{
+        //15px vertival
+        for (int y = 0; y < 16; y++){
+            if (vl>y){
+                display->setPixel(0, 24-y);
+                display->setPixel(1, 24-y);
+            }
+            if (vr>y){
+                display->setPixel(4, 24-y);
+                display->setPixel(5, 24-y);
+            }
         }
     }
 
@@ -615,7 +842,7 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
         //drawText(display, font_12x16, "X",7,9);
     }
 
-    if (oled_hour<100){
+    if ((!BIGVU) && (oled_hour<100)){
         //use 12x16 font
         //recording time (for the actual file)
         drawText(display, font_12x16, ":",43,8);
@@ -640,26 +867,26 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
         //drawText(display, font_12x16, "00",104,8);
     }else{
         //use 8x8 font
-        drawText(display, font_8x8, ":",62,12);
-        drawText(display, font_8x8, ":",83,12);
-        drawText(display, font_8x8, ".",104,14);
+        drawText(display, font_8x8, ":",62,15);
+        drawText(display, font_8x8, ":",83,15);
+        drawText(display, font_8x8, ".",104,17);
 
         //drawText(&display, font_8x8, "0000",32,13);
         chrtmp[2]=0;
         num2char(chrtmp,(oled_hour /100) % 100);
-        drawText(display, font_8x8, chrtmp,32,13);
+        drawText(display, font_8x8, chrtmp,32,16);
 
         num2char(chrtmp,oled_hour % 100);
-        drawText(display, font_8x8, chrtmp,48,13);
+        drawText(display, font_8x8, chrtmp,48,16);
 
         num2char(chrtmp,oled_min % 100);
-        drawText(display, font_8x8, chrtmp,69,13);
+        drawText(display, font_8x8, chrtmp,69,16);
 
         num2char(chrtmp,oled_sec % 100);
-        drawText(display, font_8x8, chrtmp,90,13);
+        drawText(display, font_8x8, chrtmp,90,16);
 
         num2char(chrtmp,oled_frame % 100);
-        drawText(display, font_8x8, chrtmp,110,13);
+        drawText(display, font_8x8, chrtmp,110,16);
     }
 
     drawText(display, font_5x8,oled_fnam,0,24);
@@ -746,6 +973,7 @@ static bool _fatfs_init()
     }
 
     printf("Card info: %s %7.2f GB (GB = 1E9 Bytes)\n\n", format, fs->csize * fs->n_fatent * 512E-9);
+    //oled_free=(uint64_t)fs.free_clst*fs.csize*512; -- not working free_clst== -1
 
     return true;
 }
@@ -936,10 +1164,8 @@ int main()
     //int count = 0;
     bool wait_sync = false;
 
-#ifdef STARMED    
-    bool user_standy = true;
-#else
-    bool user_standy = false;
+#ifdef NOSPLIT
+    spdif_rec_wav::set_blank_split(false);
 #endif
 
 #ifdef BATTRTC
@@ -1055,7 +1281,7 @@ int main()
     //                            |  |  |       | | |   |   
  // drawText(&display, font_5x8, "-- 16b192k 999G N ntp 00%",0,0);
 
- // drawText(&display, font_5x8, "Rx 24b 96k 256G A RTC 99%",0,0);
+    drawText(&display, font_5x8, "Rx 24b 96k 256G A RTC 99%",0,0);
 
     // //Mode icon + 999h + msec or frame? ---- can only record less than 10 hours in one file (4GB split!!)
     // drawText(&display, font_12x16, "O",0,8);
@@ -1068,42 +1294,55 @@ int main()
     // drawText(&display, font_12x16, "00",104,8);
 
     // Mode icon + 9h + msec or frame
-    ///input signal bar
-    // for (int y = 8; y < 24; y++){
-    //     display.setPixel(0, y);
-    //     display.setPixel(1, y);
-    //     display.setPixel(3, y);
-    //     display.setPixel(4, y);
-    // }
 
-    /////// 12x16 timer
+    if (BIGVU){
+        ///input signal bar
+        for (int x = 26; x < 126; x++){
+            display.setPixel(x, 9);
+            display.setPixel(x, 10);
+            display.setPixel(x, 12);
+            display.setPixel(x, 13);
+        }
+        // ////// 8x8 timer
 
-    display.addBitmapImage(8, 9, 16, 16, img_record);
-    //drawText(&display, font_12x16, "O",7,8);
+        display.addBitmapImage(8, 9, 16, 16, img_record);
 
-    drawText(&display, font_12x16, ":",43,7);
-    drawText(&display, font_12x16, ":",71,7);
-    drawText(&display, font_12x16, ".",98,9);
-    drawText(&display, font_12x16, "00",22,8);
-    drawText(&display, font_12x16, "00",50,8);
-    drawText(&display, font_12x16, "00",78,8);
-    drawText(&display, font_12x16, "00",104,8);
+        drawText(&display, font_8x8, ":",62,15);
+        drawText(&display, font_8x8, ":",83,15);
+        drawText(&display, font_8x8, ".",104,17);
+        drawText(&display, font_8x8, "0000",32,16);
+        drawText(&display, font_8x8, "00",69,16);
+        drawText(&display, font_8x8, "00",90,16);
+        drawText(&display, font_8x8, "00",110,16);
 
-    // ////// 8x8 timer
+    }else{
+        ///input signal bar
+        for (int y = 8; y < 24; y++){
+            display.setPixel(0, y);
+            display.setPixel(1, y);
+            display.setPixel(3, y);
+            display.setPixel(4, y);
+        }
 
-    // display.addBitmapImage(8, 9, 16, 16, img_record);
+        /////// 12x16 timer
 
-    // drawText(&display, font_8x8, ":",62,12);
-    // drawText(&display, font_8x8, ":",83,12);
-    // drawText(&display, font_8x8, ".",104,14);
-    // drawText(&display, font_8x8, "0000",32,13);
-    // drawText(&display, font_8x8, "00",69,13);
-    // drawText(&display, font_8x8, "00",90,13);
-    // drawText(&display, font_8x8, "00",110,13);
+        display.addBitmapImage(8, 9, 16, 16, img_record);
+        //drawText(&display, font_12x16, "O",7,8);
+
+        drawText(&display, font_12x16, ":",43,7);
+        drawText(&display, font_12x16, ":",71,7);
+        drawText(&display, font_12x16, ".",98,9);
+        drawText(&display, font_12x16, "00",22,8);
+        drawText(&display, font_12x16, "00",50,8);
+        drawText(&display, font_12x16, "00",78,8);
+        drawText(&display, font_12x16, "00",104,8);
+    }
 
 
     drawText(&display, font_5x8, " - - - - Init - - - - ",0,23);
     display.sendBuffer();
+
+    // for(;;);
 #endif
 
 
@@ -1148,6 +1387,17 @@ int main()
     bits_per_sample = gpio_get(PIN_SWITCH_24BIT) ? bits_per_sample_t::_16BITS : bits_per_sample_t::_24BITS;
 #endif
     oled_24bit=(bits_per_sample==bits_per_sample_t::_24BITS);
+
+
+#ifdef STARMED    
+    bool user_standy = true;
+    if (!spdif_rec_wav::is_standby()){
+        _toggle_start_stop(bits_per_sample, wait_sync, user_standy, standby_repeat);
+    }
+#else
+    bool user_standy = false;
+#endif
+
 
     //printf("Pico3\r\n");
 
@@ -1262,9 +1512,9 @@ int main()
             }
             //printf("Pico6\r\n");
             if (wait_sync) {
-                    put_pixel(CL_ARMED);
-                    oled_mode=play_mode_t::ARMED;
-                    printf("start when sound detected\r\n");
+                put_pixel(CL_ARMED);
+                oled_mode=play_mode_t::ARMED;
+                printf("start when sound detected\r\n");
                 spdif_rec_wav::start_recording(bits_per_sample, true);  // standby start
                 wait_sync = false;
                 user_standy = true;

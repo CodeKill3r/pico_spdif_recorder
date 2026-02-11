@@ -190,10 +190,23 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
                 while (true) {
                     if (!queue_is_empty(&_spdif_queue)) {
                         sub_frame_buf_info_t buf_info;
+
+                        // avg level -> oled_volL/volR ---- does have no real purpose --  either no signal, or the blank detector starts the recording
+                        // queue_peek_blocking(&_spdif_queue, &buf_info);
+                        // int64_t avgL=0,avgR=0;
+                        // for(int i=0; i<buf_info.sub_frame_count; i+=2){
+                        //     avgL+=abs(_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i]);
+                        //     avgR+=abs(_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id+i+1]);
+                        // }
+                        // avgL/=buf_info.sub_frame_count;
+                        // avgR/=buf_info.sub_frame_count;
+                        // oled_volL=(uint32_t)avgL;
+                        // oled_volR=(uint32_t)avgR;
+
                         // check blank status
                         queue_peek_blocking(&_spdif_queue, &buf_info);
                         blank_status_t blank_status = _scan_blank(&_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id], buf_info.sub_frame_count, sample_freq);
-                        if (blank_status == blank_status_t::NOT_BLANK || blank_status == blank_status_t::BLANK_END_DETECTED) {
+                        if (blank_status == blank_status_t::NOT_BLANK || blank_status == blank_status_t::BLANK_END_DETECTED) {                  // armed -> start by signal_detection
                             // apply accum as equivalent to PRE_START_SEC, but don't exceed num of buffers sotred
                             int max_buf_accum = static_cast<int>(static_cast<float>(sample_freq) * PRE_START_SEC * NUM_CHANNELS / SPDIF_BLOCK_SIZE) - 1;
                             int buf_id_diff = (buf_info.buf_id + NUM_SUB_FRAME_BUF - last_buf_id) % NUM_SUB_FRAME_BUF;
@@ -205,7 +218,7 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
                         }
                         queue_remove_blocking(&_spdif_queue, &buf_info);
                     }
-                    // check cancel of standby
+                    // check cancel of standby -- armed ->start || stop || split
                     if (!queue_is_empty(&_record_cmd_queue)) {
                         queue_remove_blocking(&_record_cmd_queue, &record_cmd_data);
                         if (record_cmd_data.cmd == record_cmd_type_t::START_CMD || record_cmd_data.cmd == record_cmd_type_t::END_CMD || record_cmd_data.cmd == record_cmd_type_t::END_FOR_SPLIT_CMD) {
@@ -221,6 +234,7 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
             }
 
             if (next.is_equal_status(wav_file_status::status_t::RESET)) {
+                //printf("prep rst \r\n");
                 next.req_prepare(_suffix, sample_freq, bits_per_sample);
             }
             next.wait_status(wav_file_status::status_t::PREPARED);
@@ -296,14 +310,16 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
 
                         // check blank status
                         if (_blank_split) {
-                            queue_peek_blocking(&_spdif_queue, &buf_info);
+                            // queue_peek_blocking(&_spdif_queue, &buf_info);
                             blank_status_t blank_status = _scan_blank(&_sub_frame_buf[SPDIF_BLOCK_SIZE * buf_info.buf_id], buf_info.sub_frame_count, sample_freq);
                             if (cur.is_data_written()) {
                                 if (blank_status == blank_status_t::BLANK_END_DETECTED) {
+                                    report_error(error_type_t::BLANK_SPLIT);
                                     split_recording(bits_per_sample);
                                     break;
                                 } else if (blank_status == blank_status_t::BLANK_SKIP) {
                                     end_recording(false);
+                                    report_error(error_type_t::BLANK_STOP);
                                     start_recording(bits_per_sample, true);  // standby start
                                     break;
                                 }
@@ -332,6 +348,7 @@ void spdif_rec_wav::record_process_loop(const char* log_prefix, const char* suff
                         // prepare next file
                         printf("prep next \r\n");
                         next.req_prepare(_suffix + 1, sample_freq, bits_per_sample);
+
                     }
                     wav_file_status::send_core0_grant();
                 }
@@ -447,6 +464,12 @@ void spdif_rec_wav::_handle_errors()
         case error_type_t::SUFFIX_FILE_FAIL:
             log_printf("ERROR: suffix file failed\r\n");
             break;
+        case error_type_t::BLANK_SPLIT:
+            log_printf("LOG:   Blank split\r\n");
+            break;
+        case error_type_t::BLANK_STOP:
+            log_printf("LOG:   Blank stop\r\n");
+            break;
         default:
             log_printf("ERROR: unknown error\r\n");
             break;
@@ -543,9 +566,9 @@ void spdif_rec_wav::_push_sub_frame_buf(const uint32_t* buff, const uint32_t sub
             report_error(error_type_t::SPDIF_QUEUE_FULL, error_count);
         }
         error_count = 0;
-    } else {
+    } else {    //"ignore" and retry
         error_count++;
-        if (error_count >= 1000) {
+        if (error_count >= 1000) {      //abort (no longer tries to salvage the buffer)
             report_error(error_type_t::SPDIF_QUEUE_FULL, error_count);
             error_count -= 1000;
         }

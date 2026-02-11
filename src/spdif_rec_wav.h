@@ -40,7 +40,9 @@ public:
         WAV_DATA_WRITE_FAIL,
         WAV_DATA_SYNC_FAIL,
         WAV_CLOSE_FAIL,
-        SUFFIX_FILE_FAIL
+        SUFFIX_FILE_FAIL,
+        BLANK_SPLIT,
+        BLANK_STOP
     };
 
     // === Public class constants ===

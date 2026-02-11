@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [alternate fork by CodeKill3r]
 
+## [1.1.4] - 2025-09-11
+### Added
+* Support for Larger/Horizontal VU-meter with smaller time fonts 
+* blank detection messages added to log
+
+## [1.1.3] - 2025-06-17
+### Added
+* Support for 64bit Wave files: RF64 (default) or optionally W64 or leagacy WAV 
+  (using legacy WAV file may introduce gaps (buffer overflow) in the recording during splitting the files)
+
+## [1.1.2] - 2025-06-12
+### Added
+* Support for OLED module to display information and status
+* Real-time VU-meter
+* Adaptve font-size recording timer
+
 ## [1.1.1] - 2025-06-07
 ### Added
 * Support for "tiny RTC I2C module" 
