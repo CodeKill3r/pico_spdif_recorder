@@ -196,209 +196,49 @@ static constexpr uint32_t smallVu16[]={
 };
 
 static constexpr uint32_t bigVu24[]={
-    14732510,
-    12937002,
-    11360318,
-    9975792,
-    8760003,
-    7692387,
-    6754886,
-    5931641,
-    5208729,
-    4573920,
-    4016479,
-    3526975,
-    3097128,
-    2719669,
-    2388212,
-    2097152,
-    1841563,
-    1617125,
-    1420039,
-    1246974,
-    1095000,
-    961548,
-    844360,
-    741455,
-    651091,
-    571740,
-    502059,
-    440871,
-    387141,
-    339958,
-    298526,
-    262144,
-    230195,
-    202140,
-    177504,
-    155871,
-    136875,
-    120193,
-    105545,
-    92681,
-    81386,
-    71467,
-    62757,
-    55108,
-    48392,
-    42494,
-    37315,
-    32768,
-    28774,
-    25267,
-    22188,
-    19483,
-    17109,
-    15024,
-    13193,
-    11585,
-    10173,
-    8933,
-    7844,
-    6888,
-    6049,
-    5311,
-    4664,
-    4095,
-    3596,
-    3158,
-    2773,
-    2435,
-    2138,
-    1878,
-    1649,
-    1448,
-    1271,
-    1116,
-    980,
-    861,
-    756,
-    663,
-    583,
-    511,
-    449,
-    394,
-    346,
-    304,
-    267,
-    234,
-    206,
-    181,
-    158,
-    139,
-    122,
-    107,
-    94,
-    82,
-    72,
-    63,
-    56,
-    49,
-    43,
-    38
+    14732510,    12937002,    11360318,    9975792,    8760003,
+    7692387,    6754886,    5931641,    5208729,    4573920,
+    4016479,    3526975,    3097128,    2719669,    2388212,
+    2097152,    1841563,    1617125,    1420039,    1246974,
+    1095000,    961548,    844360,    741455,    651091,
+    571740,    502059,    440871,    387141,    339958,
+    298526,    262144,    230195,    202140,    177504,
+    155871,    136875,    120193,    105545,    92681,
+    81386,    71467,    62757,    55108,    48392,
+    42494,    37315,    32768,    28774,    25267,
+    22188,    19483,    17109,    15024,    13193,
+    11585,    10173,    8933,    7844,    6888,
+    6049,    5311,    4664,    4095,    3596,
+    3158,    2773,    2435,    2138,    1878,
+    1649,    1448,    1271,    1116,    980,
+    861,    756,    663,    583,    511,
+    449,    394,    346,    304,    267,
+    234,    206,    181,    158,    139,
+    122,    107,    94,    82,    72,
+    63,    56,    49,    43,    38
 };
 
-static constexpr uint32_t bigVu16[]={
-    60096,
-    55108,
-    50535,
-    46340,
-    42494,
-    38967,
-    35733,
-    32768,
-    30048,
-    27554,
-    25267,
-    23170,
-    21247,
-    19483,
-    17866,
-    16384,
-    15024,
-    13777,
-    12633,
-    11585,
-    10623,
-    9741,
-    8933,
-    8192,
-    7512,
-    6888,
-    6316,
-    5792,
-    5311,
-    4870,
-    4466,
-    4096,
-    3756,
-    3444,
-    3158,
-    2896,
-    2655,
-    2435,
-    2233,
-    2048,
-    1878,
-    1722,
-    1579,
-    1448,
-    1327,
-    1217,
-    1116,
-    1024,
-    939,
-    861,
-    789,
-    724,
-    663,
-    608,
-    558,
-    512,
-    469,
-    430,
-    394,
-    362,
-    331,
-    304,
-    279,
-    256,
-    234,
-    215,
-    197,
-    181,
-    165,
-    152,
-    139,
-    128,
-    117,
-    107,
-    98,
-    90,
-    82,
-    76,
-    69,
-    63,
-    58,
-    53,
-    49,
-    45,
-    41,
-    38,
-    34,
-    32,
-    29,
-    26,
-    24,
-    22,
-    20,
-    19,
-    17,
-    16,
-    14,
-    13,
-    12,
-    11
+static constexpr uint32_t bigVu16[] = {
+    60096,    55108,    50535,    46340,    42494,
+    38967,    35733,    32768,    30048,    27554,
+    25267,    23170,    21247,    19483,    17866,
+    16384,    15024,    13777,    12633,    11585,
+    10623,    9741,    8933,    8192,    7512,
+    6888,    6316,    5792,    5311,    4870,
+    4466,    4096,    3756,    3444,    3158,
+    2896,    2655,    2435,    2233,    2048,
+    1878,    1722,    1579,    1448,    1327,
+    1217,    1116,    1024,    939,    861,
+    789,    724,    663,    608,    558,
+    512,    469,    430,    394,    362,
+    331,    304,    279,    256,    234,
+    215,    197,    181,    165,    152,
+    139,    128,    117,    107,    98,
+    90,    82,    76,    69,    63,
+    58,    53,    49,    45,    41,
+    38,    34,    32,    29,    26,
+    24,    22,    20,    19,    17,
+    16,    14,    13,    12,    11
 };
 
 static constexpr uint32_t BIGVU = 1;    //using horizontal long VU instead of vertical 15px
@@ -426,6 +266,7 @@ uint8_t     oled_frame=0;     // 1/75th of a sec (works even 44k1 and 48k sample
 //--- bottom filename row
 char       oled_fnam[28]="-- Pico-S/PDIF-Recorder --";
 
+bool advterm=true;
 static constexpr uint8_t PIN_SWITCH_24BIT      = 6;
 
 /// GGRRBB
@@ -584,119 +425,195 @@ uint8_t bcdToDec(uint8_t val) {
 
 
 //interactive date-time adjustment w/ getchar() & putchar()
-bool read_datetime(char* i2cdata, char delim){
+bool read_datetime(char* i2cdata, char delim){      //aterm --support advanced terminal with byte i/o and backspace (some only support cached/batch data transfer)
     int chr;
     uint8_t idx=0;
+    char inbuff[12];
     for (idx=0; idx<6; idx+=2)
     {
         i2cdata[idx]='0';
         i2cdata[idx+1]=(delim=='-')?'1':'0';        //date init to 01-01-01 -- time init to 00:00:00
     }
     idx=0;
-    while(1){
-        if ((chr = getchar_timeout_us(1)) != PICO_ERROR_TIMEOUT) {
-                char c = static_cast<char>(chr);
-                if (c=='\b'){                       //backspace -- clear last digit and delim if 
-                    if((idx==2) || (idx==4)){               //delete delim
-                        putchar('\b');
-                        putchar(' ');
-                        putchar('\b');
-                    }
-                    if (idx==5){
-                        idx--;
-                        putchar(' ');
-                        putchar('\b');
-                    }else{
-                        idx=(idx>0)?idx-1:0;
-                        putchar('\b');
-                        putchar(' ');
-                        putchar('\b');
-                    }
-                }else if(c=='\r'){
-                    while(idx<6){                   //print the remaining digits
-                        putchar(i2cdata[idx]);
-                        if ((idx==1) | (idx==3)){
-                            putchar(delim);
+    if (advterm){
+        while(1){
+            if ((chr = getchar_timeout_us(1)) != PICO_ERROR_TIMEOUT) {
+                    char c = static_cast<char>(chr);
+                    if (c=='\b'){                       //backspace -- clear last digit and delim if 
+                        if((idx==2) || (idx==4)){               //delete delim
+                            putchar('\b');
+                            putchar(' ');
+                            putchar('\b');
                         }
-                        idx++;
-                    }
-                    printf("\r\n");
-                    return true;
-                }else if((c>='0') && (c<='9')){
-                    i2cdata[idx]=(uint8_t) c;
-                    putchar(c);
-                    if (idx<5){
-                        idx++;
-                        if ((idx==2) | (idx==4)){
-                            putchar(delim);
+                        if (idx==5){
+                            idx--;
+                            putchar(' ');
+                            putchar('\b');
+                        }else{
+                            idx=(idx>0)?idx-1:0;
+                            putchar('\b');
+                            putchar(' ');
+                            putchar('\b');
                         }
-                    }else{
-                        putchar('\b');
-                    }
-                }else if(c==delim){
-                    if (idx<5){
-                        if (idx<2)
-                        {
-                            while (idx<2){
-                                putchar(i2cdata[idx]);
-                                idx++;
-                            }
-                            putchar(delim);
-                        }else if(idx<4){
-                            while (idx<4){
-                                putchar(i2cdata[idx]);
-                                idx++;
-                            }
-                            putchar(delim);
-                        }else{  //idx==4
+                    }else if(c=='\r'){
+                        while(idx<6){                   //print the remaining digits
                             putchar(i2cdata[idx]);
+                            if ((idx==1) | (idx==3)){
+                                putchar(delim);
+                            }
                             idx++;
-                        }   //if idx==5 char just discarded
+                        }
+                        printf("\r\n");
+                        return true;
+                    }else if((c>='0') && (c<='9')){
+                        i2cdata[idx]=(uint8_t) c;
+                        putchar(c);
+                        if (idx<5){
+                            idx++;
+                            if ((idx==2) | (idx==4)){
+                                putchar(delim);
+                            }
+                        }else{
+                            putchar('\b');
+                        }
+                    }else if(c==delim){
+                        if (idx<5){
+                            if (idx<2)
+                            {
+                                while (idx<2){
+                                    putchar(i2cdata[idx]);
+                                    idx++;
+                                }
+                                putchar(delim);
+                            }else if(idx<4){
+                                while (idx<4){
+                                    putchar(i2cdata[idx]);
+                                    idx++;
+                                }
+                                putchar(delim);
+                            }else{  //idx==4
+                                putchar(i2cdata[idx]);
+                                idx++;
+                            }   //if idx==5 char just discarded
+                        }
+                    }else if((c=='x') || (c=='X')){
+                        printf("\r\ncancelled\r\n");
+                        return false;
                     }
-                }else if((c=='x') || (c=='X')){
-                    printf("\r\ncancelled\r\n");
-                    return false;
-                }
+            }
+            tight_loop_contents();
+            sleep_ms(10);
         }
-        tight_loop_contents();
-        sleep_ms(10);
+    }else{      //batch transfer - only validate after a whole line
+        //read
+        while(idx<9){  
+            if ((chr = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
+                inbuff[idx] = static_cast<char>(chr);
+                idx++;
+                if ((inbuff[idx]=='\r') || (inbuff[idx]=='\n')){
+                    tight_loop_contents();
+                    break;
+                }
+            };
+        }
+        //process
+        ///check format
+        ////check proper delimiter char
+        if ((idx<8) && (inbuff[2]==delim) && (inbuff[5]==delim)){
+            printf("\r\ninvalid_delim\r\n");
+            return false;
+        }
+        ////check if other chars are numbers
+        for (idx=0; idx<8; idx++){
+            if ( ((idx!=2)&&(idx!=5)) && ((inbuff[idx]<'0') || (inbuff[idx]>'9')) ){
+                printf("\r\ninvalid_num %d %d\r\n", idx, inbuff[idx]);
+                return false;
+            }
+        }
+        ///transfer from read buf to parameter array
+        ///print the processed string
+        idx=0;
+        while(idx<6){
+            i2cdata[idx]=(uint8_t)inbuff[(idx>1)?((idx>3)?idx+2:idx+1):idx];
+            putchar(i2cdata[idx]);
+            idx++;
+            if((idx==2)||(idx==4))
+                putchar(delim);
+        }
+        printf("\r\n");
+        return true;
     }
 }
 #endif
 
 #ifdef OLED
+//replace linear search with binary search
 uint8_t calcVU(uint32_t value, bool bits24){
-    //calc a UV value 0-16 from input   -- based on dB ( 20*log10(val/range) )
     if (BIGVU){
-        if (bits24){          //24bit input -- actually full range (145dB) would be a waste, so only cover -111 to 0 dB
-            for(uint8_t h=0;h<100;h++){
-                if (value>bigVu24[h])
-                    return 100-h;
-            }
-            return 0;    
-        }else{        //16bit input -- actually full range (96dB) would be a waste, so only cover -74 to 0 dB
-            for(uint8_t h=0;h<100;h++){
-                if (value>bigVu16[h])
-                    return 100-h;
-            }
-            return 0;    
+        uint8_t low=0;
+        uint8_t high=99;
+        uint8_t mid;
+        while (low<=high){
+            mid=low+(high-low)/2;
+            if (((bits24)?bigVu24[mid]:bigVu16[mid])==value)
+                return 100-mid;
+
+            if (((bits24)?bigVu24[mid]:bigVu16[mid])<value)
+                high=mid-1;
+            else
+                low=low+1;
         }
+        return 100-high;
     }else{
-        if (bits24){          //24bit input -- actually full range would be a waste, so only cover 145/2~=72dB
-            for(uint8_t h=0;h<15;h++){
-                if (value>smallVu24[h])
-                    return 15-h;
-            }
-            return 0;    
-        }else{        //16bit input -- actually full range would be a waste, so only cover 96/2~=45dB
-            for(uint8_t h=0;h<15;h++){
-                if (value>smallVu16[h])
-                    return 15-h;
-            }
-            return 0;    
+        uint8_t low=0;
+        uint8_t high=15;
+        uint8_t mid;
+        while (low<=high){
+            mid=low+(high-low)/2;
+            if (((bits24)?smallVu24[mid]:smallVu16[mid])==value)
+                return 15-mid;
+
+            if (((bits24)?smallVu24[mid]:smallVu16[mid])<value)
+                high=mid-1;
+            else
+                low=low+1;
         }
+        return 15-high;
     }
 }
+
+// uint8_t calcVU(uint32_t value, bool bits24){
+//     //calc a UV value 0-16 from input   -- based on dB ( 20*log10(val/range) )
+//     if (BIGVU){
+//         if (bits24){          //24bit input -- actually full range (145dB) would be a waste, so only cover -111 to 0 dB
+//             for(uint8_t h=0;h<100;h++){
+//                 if (value>bigVu24[h])
+//                     return 100-h;
+//             }
+//             return 0;    
+//         }else{        //16bit input -- actually full range (96dB) would be a waste, so only cover -74 to 0 dB
+//             for(uint8_t h=0;h<100;h++){
+//                 if (value>bigVu16[h])
+//                     return 100-h;
+//             }
+//             return 0;    
+//         }
+//     }else{
+//         if (bits24){          //24bit input -- actually full range would be a waste, so only cover 145/2~=72dB
+//             for(uint8_t h=0;h<15;h++){
+//                 if (value>smallVu24[h])
+//                     return 15-h;
+//             }
+//             return 0;    
+//         }else{        //16bit input -- actually full range would be a waste, so only cover 96/2~=45dB
+//             for(uint8_t h=0;h<15;h++){
+//                 if (value>smallVu16[h])
+//                     return 15-h;
+//             }
+//             return 0;    
+//         }
+//     }
+// }
 
 void num2char(char* data, uint8_t value){
     value=value % 100;
@@ -704,23 +621,31 @@ void num2char(char* data, uint8_t value){
     data[0]=((value / 10) % 10)+'0';
 }
 
+
+//////////////////////////////////////////////
+// compose display contents to memory buffer
+/////////////////////////////////////////////
 void composeScreen(pico_ssd1306::SSD1306 *display){
     char chrtmp[6]="     ";
     //generate screen using the oled variables
     display->clear();
     //drawText(display, font_5x8, "Rx 24b 96k 256G A RTC 99%",0,0);
+
+    //SPDIF frames receiving
     if (oled_isRx){
         drawText(display, font_5x8, "Rx",0,0);
     }else{
         drawText(display, font_5x8, "--",0,0);
     }
 
+    //24bit mode
     if (oled_24bit){
         drawText(display, font_5x8, "24b",15,0);
     }else{
         drawText(display, font_5x8, "16b",15,0);
     }
 
+    //input samplerate
     if (oled_samples==smpl_t::K192){
         drawText(display, font_5x8, "192k",30,0);
     }else if(oled_samples==smpl_t::K176) {
@@ -751,7 +676,7 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
                 chrtmp[4]='G';  //Gbytes
                 if (dispfree>1024){
                     dispfree/=1024;
-                    chrtmp[4]='T';  //Tbytes    -- i dont think bigger SD can be possible
+                    chrtmp[4]='T';  //Tbytes    -- fix it if bigger needed
                 }
             }
         }
@@ -770,20 +695,23 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
     chrtmp[5]=0;
     drawText(display, font_5x8,chrtmp,50,0);
 
+    //file splitting mode
     if (oled_asplit){
-        drawText(display, font_5x8, "A",80,0);
+        drawText(display, font_5x8, "A",80,0);      //auto split record
     }else{
         drawText(display, font_5x8, "N",80,0);
     }
 
+    //time/postfix mode
     if(oled_time==time_mode_t::NTP) {
-        drawText(display, font_5x8, "NTP",90,0);
+        drawText(display, font_5x8, "NTP",90,0);    //WIFI/NTP sync
     }else if(oled_time==time_mode_t::RTC){
-        drawText(display, font_5x8, "RTC",90,0);
+        drawText(display, font_5x8, "RTC",90,0);    //local RTC module
     }else{  //NONE -- only use suffix numbers
-        drawText(display, font_5x8, "nTi",90,0);
+        drawText(display, font_5x8, "nTi",90,0);    //no time info presents
     }
 
+    //memory buffer utilization
     if(oled_buff>=100){
         drawText(display, font_5x8, "1",105,0);
     }
@@ -842,6 +770,7 @@ void composeScreen(pico_ssd1306::SSD1306 *display){
         //drawText(display, font_12x16, "X",7,9);
     }
 
+    //diplay record timer
     if ((!BIGVU) && (oled_hour<100)){
         //use 12x16 font
         //recording time (for the actual file)
@@ -966,7 +895,8 @@ static bool _fatfs_init()
     const char* format = (fs->fs_type == FS_FAT12) ? "FAT12" :
                          (fs->fs_type == FS_FAT16) ? "FAT16" :
                          (fs->fs_type == FS_FAT32) ? "FAT32" :
-                         (fs->fs_type == FS_EXFAT) ? "exFAT" : "unknown format";
+                         (fs->fs_type == FS_EXFAT) ? "exFAT" : 
+                         "unknown format";
     spdif_rec_wav::set_fsys(fs->fs_type);
     if (fs->fs_type != FS_EXFAT){
         spdif_rec_wav::usew32();
@@ -996,6 +926,9 @@ static void _show_help(const bits_per_sample_t bits_per_sample)
 if (spdif_rec_wav::get_fsys()==FS_EXFAT){
     printf(" wave64 mode:    %s\r\n", spdif_rec_wav::noW64() ? "off" : "on");
     }
+#ifdef BATTRTC
+    printf(" adv terminal:   %s\r\n", advterm ? "on" : "off");
+#endif
     printf(" suffix to rec:  %03d\r\n", spdif_rec_wav::get_suffix());
     printf("---------------------------\r\n");
     printf("[serial interface help]\r\n");
@@ -1012,6 +945,7 @@ if (spdif_rec_wav::get_fsys()==FS_EXFAT){
 #ifdef BATTRTC
     printf(" 't' to set RTC time (*2)\r\n");
     printf(" 'd' to set RTC date (*2)\r\n");
+    printf(" 'a' to toggle adv terminal support\r\n");
 #endif 
     if (spdif_rec_wav::get_fsys()==FS_EXFAT){
     printf(" '6' toggle 64bit wave (*2)\r\n");
@@ -1256,6 +1190,10 @@ int main()
     // display.sendBuffer(); //Send buffer to device and show on screen
 
     // -- draw intro --
+    //
+    // compose a display with sample contents
+    //
+    //
     
     // drawText(&display, font_16x32, "- PICO -",0,0);
     // display.sendBuffer();
@@ -1659,6 +1597,9 @@ int main()
                         }
                     }
                 }
+            } else if (c == 'a') {
+                advterm=!advterm;
+                printf("Adv terminal: %s\r\n", advterm ? "on" : "off");
 #endif
             } else if (c == '6') {
                 if ((spdif_rec_wav::get_fsys()==FS_EXFAT) &&  !spdif_rec_wav::is_standby() && !spdif_rec_wav::is_recording()) {

@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [alternate fork by CodeKill3r]
+## [1.1.5] - 2026-06-02
+### Added
+* Support for less interactive terminal input for date/time (allow whole line input instead of single char-by-char)
+
+## [internal] 2026-02-12
+### Changed
+* faster VU calculation (bin-search instead of linear search)
 
 ## [1.1.4] - 2025-09-11
 ### Added
